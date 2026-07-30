@@ -1,0 +1,6 @@
+{
+  "name": "AI Song Studio",
+  "description": "AI Song Studio application for creating, managing, and collaborating on music projects",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

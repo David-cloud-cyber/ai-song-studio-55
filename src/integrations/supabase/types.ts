@@ -73,6 +73,59 @@ export type Database = {
           },
         ]
       }
+      generation_jobs: {
+        Row: {
+          created_at: string
+          credits_spent: number
+          error_message: string | null
+          id: string
+          kind: string
+          payload: Json | null
+          project_id: string | null
+          result: Json | null
+          status: string
+          suno_task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_spent?: number
+          error_message?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          project_id?: string | null
+          result?: Json | null
+          status?: string
+          suno_task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_spent?: number
+          error_message?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          project_id?: string | null
+          result?: Json | null
+          status?: string
+          suno_task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -128,14 +181,23 @@ export type Database = {
           cover_url: string | null
           created_at: string
           duration_seconds: number | null
+          error_message: string | null
           genre: string | null
           id: string
+          image_url: string | null
+          instrumental: boolean
           is_favorite: boolean
           lyrics: string | null
+          model: string | null
           mood: string | null
+          parent_project_id: string | null
           progress: number
           prompt: string | null
           status: string
+          stems: Json | null
+          style: string | null
+          suno_audio_id: string | null
+          suno_task_id: string | null
           tags: string[]
           title: string
           updated_at: string
@@ -149,14 +211,23 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           duration_seconds?: number | null
+          error_message?: string | null
           genre?: string | null
           id?: string
+          image_url?: string | null
+          instrumental?: boolean
           is_favorite?: boolean
           lyrics?: string | null
+          model?: string | null
           mood?: string | null
+          parent_project_id?: string | null
           progress?: number
           prompt?: string | null
           status?: string
+          stems?: Json | null
+          style?: string | null
+          suno_audio_id?: string | null
+          suno_task_id?: string | null
           tags?: string[]
           title?: string
           updated_at?: string
@@ -170,14 +241,23 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           duration_seconds?: number | null
+          error_message?: string | null
           genre?: string | null
           id?: string
+          image_url?: string | null
+          instrumental?: boolean
           is_favorite?: boolean
           lyrics?: string | null
+          model?: string | null
           mood?: string | null
+          parent_project_id?: string | null
           progress?: number
           prompt?: string | null
           status?: string
+          stems?: Json | null
+          style?: string | null
+          suno_audio_id?: string | null
+          suno_task_id?: string | null
           tags?: string[]
           title?: string
           updated_at?: string
@@ -185,7 +265,15 @@ export type Database = {
           video_url?: string | null
           voice?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_parent_project_id_fkey"
+            columns: ["parent_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

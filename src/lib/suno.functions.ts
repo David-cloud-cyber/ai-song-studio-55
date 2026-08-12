@@ -19,8 +19,10 @@ function callbackUrl(kind: string) {
   return `${origin}/api/public/suno-callback?kind=${kind}&token=${encodeURIComponent(secret)}`;
 }
 
+type AuthedClient = SupabaseClient<Database>;
+
 async function spend(
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: unknown }> },
+  supabase: AuthedClient,
   amount: number,
   reason: string,
   projectId: string,
@@ -30,7 +32,7 @@ async function spend(
     _reason: reason,
     _project_id: projectId,
   });
-  if (error) throw new Error((error as { message?: string }).message ?? "Crédits insuffisants");
+  if (error) throw new Error(error.message ?? "Crédits insuffisants");
 }
 
 /** Lance une génération de chanson ou d'instrumentale. */

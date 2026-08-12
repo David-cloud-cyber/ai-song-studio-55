@@ -3,6 +3,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import type { JwtPayload } from "@supabase/supabase-js";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -44,7 +45,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
         context: {
           supabase: {} as ReturnType<typeof createClient<Database>>,
           userId: "mock-user-id",
-          claims: { sub: "mock-user-id" } as Record<string, unknown>,
+          claims: { sub: "mock-user-id" } as unknown as JwtPayload,
         },
       });
     }
@@ -56,7 +57,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
         context: {
           supabase: {} as ReturnType<typeof createClient<Database>>,
           userId: "mock-user-id",
-          claims: { sub: "mock-user-id" } as Record<string, unknown>,
+          claims: { sub: "mock-user-id" } as unknown as JwtPayload,
         },
       });
     }

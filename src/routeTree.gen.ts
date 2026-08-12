@@ -31,6 +31,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as AuthenticatedEditorProjectIdRouteImport } from './routes/_authenticated/editor.$projectId'
 import { Route as AuthenticatedLibraryProjectIdRouteImport } from './routes/_authenticated/library.$projectId'
+import { Route as ApiPublicSunoCallbackRouteImport } from './routes/api/public/suno-callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -143,6 +144,11 @@ const AuthenticatedLibraryProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
+const ApiPublicSunoCallbackRoute = ApiPublicSunoCallbackRouteImport.update({
+  id: '/api/public/suno-callback',
+  path: '/api/public/suno-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof AuthenticatedStudioRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/studio': typeof AuthenticatedStudioRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/_authenticated/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/_authenticated/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/public/suno-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/public/suno-callback'
   id:
     | '__root__'
     | '/'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '/_authenticated/studio'
     | '/_authenticated/editor/$projectId'
     | '/_authenticated/library/$projectId'
+    | '/api/public/suno-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -303,6 +315,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
+  ApiPublicSunoCallbackRoute: typeof ApiPublicSunoCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryProjectIdRouteImport
       parentRoute: typeof AuthenticatedLibraryRoute
     }
+    '/api/public/suno-callback': {
+      id: '/api/public/suno-callback'
+      path: '/api/public/suno-callback'
+      fullPath: '/api/public/suno-callback'
+      preLoaderRoute: typeof ApiPublicSunoCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -513,6 +533,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
+  ApiPublicSunoCallbackRoute: ApiPublicSunoCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,17 +2,17 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { useSession } from "@/hooks/use-session";
 import { useProfile } from "@/hooks/use-profile";
+import { generateTrack, COSTS } from "@/lib/suno.functions";
 import { genres, moods, voices, templates } from "@/data/mock";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
-import { Sparkles, Music, Mic2, Clock, Sliders, Upload, Loader2 } from "lucide-react";
+import { Sparkles, Music, Mic2, Clock, Sliders, MicOff, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const GENERATION_COST = 40;
 const GRADIENTS = [
   "from-cyan-400 via-blue-600 to-fuchsia-700",
   "from-rose-500 via-orange-500 to-amber-500",
@@ -21,6 +21,12 @@ const GRADIENTS = [
   "from-amber-400 via-rose-500 to-indigo-700",
 ];
 
+const MODELS = [
+  { id: "V4_5", label: "v4.5", hint: "Équilibré" },
+  { id: "V4_5PLUS", label: "v4.5+", hint: "Plus riche" },
+  { id: "V5", label: "v5", hint: "Qualité max" },
+] as const;
+
 export const Route = createFileRoute("/_authenticated/create")({
   validateSearch: z.object({ template: z.string().optional() }),
   head: () => ({
@@ -28,8 +34,15 @@ export const Route = createFileRoute("/_authenticated/create")({
       { title: "Créer · BeatStudio AI" },
       {
         name: "description",
-        content: "Composez votre prochain titre : prompt, genre, mood, voix.",
+        content: "Composez votre prochain titre : prompt, genre, mood, voix, instrumentale.",
       },
+      { property: "og:title", content: "Créer un morceau · BeatStudio AI" },
+      {
+        property: "og:description",
+        content: "Génération musicale IA : chanson, instrumentale, extension et stems.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: CreatePage,
@@ -41,6 +54,7 @@ function CreatePage() {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const { data: profile } = useProfile();
+  const generate = useServerFn(generateTrack);
 
   const [prompt, setPrompt] = useState(
     "Un morceau phonk nocturne avec basses saturées, sensation de course en voiture sous la pluie.",
@@ -49,66 +63,56 @@ function CreatePage() {
   const [genre, setGenre] = useState(genres[0]);
   const [mood, setMood] = useState(moods[0]);
   const [voice, setVoice] = useState(voices[0]);
+  const [instrumental, setInstrumental] = useState(false);
+  const [model, setModel] = useState<(typeof MODELS)[number]["id"]>("V4_5");
   const [duration, setDuration] = useState(180);
   const [bpm, setBpm] = useState(120);
   const [generating, setGenerating] = useState(false);
 
   const template = templates.find((t) => t.id === search.template) ?? templates[0];
-  const enough = (profile?.credits ?? 0) >= GENERATION_COST;
+  const cost = instrumental ? COSTS.instrumental : COSTS.song;
+  const enough = (profile?.credits ?? 0) >= cost;
 
-  const generate = async () => {
+  const launch = async () => {
     if (!user) return;
     if (!enough) {
-      toast.error("Crédits insuffisants", {
-        description: `Il faut ${GENERATION_COST} crédits.`,
-      });
+      toast.error("Crédits insuffisants", { description: `Il faut ${cost} crédits.` });
       return;
     }
     setGenerating(true);
     try {
-      const gradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
-      const { data: inserted, error: insertError } = await supabase
-        .from("projects")
-        .insert({
-          user_id: user.id,
+      const style = [genre, mood, `${bpm} BPM`, instrumental ? "instrumental" : voice]
+        .filter(Boolean)
+        .join(", ");
+
+      const res = await generate({
+        data: {
           title,
           prompt,
+          style,
           genre,
           mood,
           voice,
-          duration_seconds: duration,
-          status: "rendering",
-          cover_gradient: gradient,
-          tags: [genre, mood],
-          progress: 0,
-        })
-        .select("id")
-        .single();
-      if (insertError) throw insertError;
-
-      const { error: dedError } = await supabase.rpc("deduct_credits", {
-        _amount: GENERATION_COST,
-        _reason: `Génération · ${title}`,
-        _project_id: inserted.id,
+          instrumental,
+          customMode: true,
+          model,
+          durationSeconds: duration,
+          coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+        },
       });
-      if (dedError) throw dedError;
-
-      // Mark as draft (rendering placeholder — real AI generation in phase 3)
-      await supabase
-        .from("projects")
-        .update({ status: "draft", progress: 100 })
-        .eq("id", inserted.id);
 
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["credit-transactions"] });
 
-      toast.success("Projet créé", {
-        description: `${GENERATION_COST} crédits débités. Génération audio à venir en phase 3.`,
+      toast.success("Génération lancée", {
+        description: `${res.creditsSpent} crédits débités · rendu en cours (1 à 3 min).`,
       });
-      navigate({ to: "/library/$projectId", params: { projectId: inserted.id } });
+      navigate({ to: "/library/$projectId", params: { projectId: res.projectId } });
     } catch (err) {
-      toast.error("Erreur", { description: err instanceof Error ? err.message : "Réessayez" });
+      toast.error("Génération impossible", {
+        description: err instanceof Error ? err.message : "Réessayez dans un instant",
+      });
     } finally {
       setGenerating(false);
     }
@@ -156,6 +160,58 @@ function CreatePage() {
           Paramètres
         </h3>
         <div className="space-y-3">
+          <button
+            onClick={() => setInstrumental((v) => !v)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-colors",
+              instrumental
+                ? "border-neon/40 bg-neon/10"
+                : "border-white/5 bg-surface hover:bg-surface-2",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <MicOff className={cn("size-4", instrumental ? "text-neon" : "text-zinc-400")} />
+              <span className="text-sm font-medium">Instrumentale (sans voix)</span>
+            </span>
+            <span
+              className={cn(
+                "relative h-6 w-11 rounded-full transition-colors",
+                instrumental ? "bg-neon" : "bg-white/10",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 size-5 rounded-full bg-background transition-all",
+                  instrumental ? "left-[22px]" : "left-0.5",
+                )}
+              />
+            </span>
+          </button>
+
+          <div className="rounded-2xl border border-white/5 bg-surface p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Cpu className="size-4 text-zinc-400" />
+              <span className="text-sm font-medium">Modèle</span>
+            </div>
+            <div className="flex gap-1.5">
+              {MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setModel(m.id)}
+                  className={cn(
+                    "flex-1 rounded-xl border px-3 py-2 text-xs transition-colors",
+                    model === m.id
+                      ? "border-neon/40 bg-neon/10 text-neon"
+                      : "border-white/5 bg-white/[0.03] text-zinc-400",
+                  )}
+                >
+                  <span className="block font-semibold">{m.label}</span>
+                  <span className="block text-[10px] opacity-70">{m.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Select
             icon={<Music className="size-4" />}
             label="Genre"
@@ -170,19 +226,21 @@ function CreatePage() {
             options={moods}
             onChange={setMood}
           />
-          <Select
-            icon={<Mic2 className="size-4" />}
-            label="Voix"
-            value={voice}
-            options={voices}
-            onChange={setVoice}
-          />
+          {!instrumental && (
+            <Select
+              icon={<Mic2 className="size-4" />}
+              label="Voix"
+              value={voice}
+              options={voices}
+              onChange={setVoice}
+            />
+          )}
 
           <div className="rounded-2xl border border-white/5 bg-surface p-4">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="size-4 text-zinc-400" />
-                <span className="text-sm font-medium">Durée</span>
+                <span className="text-sm font-medium">Durée visée</span>
               </div>
               <span className="font-mono text-xs text-neon">
                 {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")}
@@ -216,30 +274,23 @@ function CreatePage() {
               className="accent-cyan-400 w-full"
             />
           </div>
-
-          <button
-            onClick={() => toast.info("Upload de référence bientôt disponible")}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-surface/60 py-4 text-sm text-zinc-400"
-          >
-            <Upload className="size-4" /> Ajouter une piste de référence
-          </button>
         </div>
       </section>
 
       <section className="px-5 pt-6">
         <button
-          onClick={generate}
+          onClick={launch}
           disabled={generating || !user}
           className="neon-pulse flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-sm font-semibold text-background disabled:opacity-60"
         >
           {generating ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Création en cours…
+              <Loader2 className="size-4 animate-spin" /> Envoi au moteur IA…
             </>
           ) : (
             <>
               <Sparkles className="size-4" strokeWidth={2.6} />
-              Créer le projet · {GENERATION_COST} crédits
+              {instrumental ? "Générer l'instrumentale" : "Générer la chanson"} · {cost} crédits
             </>
           )}
         </button>

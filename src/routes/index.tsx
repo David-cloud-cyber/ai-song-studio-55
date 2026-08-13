@@ -33,30 +33,30 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BeatStudio AI — Créez musique, clips et pochettes par IA" },
+      { title: "Loopster — Créez musique, clips et pochettes par IA" },
       {
         name: "description",
         content:
-          "Transformez une phrase en morceau complet : chansons, instrumentales, clips vidéo, paroles et pochettes générés par IA. 480 crédits offerts, sans carte bancaire.",
+          "Transformez une phrase en morceau complet : chansons, instrumentales, clips vidéo, paroles et pochettes générés par IA. 80 crédits offerts chaque jour, sans carte bancaire.",
       },
-      { property: "og:title", content: "BeatStudio AI — Studio de création musicale IA" },
+      { property: "og:title", content: "Loopster — Studio de création musicale IA" },
       {
         property: "og:description",
         content:
-          "Le studio créatif nouvelle génération : prompt to song en quelques secondes. Bêta ouverte, 480 crédits offerts.",
+          "Le studio créatif nouvelle génération : prompt to song en quelques secondes. Bêta ouverte, 80 crédits offerts chaque jour.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://ai-song-studio-55.lovable.app/" },
+      { property: "og:url", content: "https://loopster.fun/" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [{ rel: "canonical", href: "https://ai-song-studio-55.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://loopster.fun/" }],
     scripts: [
       {
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
-          name: "BeatStudio AI",
+          name: "Loopster",
           applicationCategory: "MultimediaApplication",
           operatingSystem: "Web",
           description:
@@ -75,7 +75,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen min-w-0 bg-background text-foreground">
       <MarketingNav />
       <main className="pt-16">
         <Hero />
@@ -98,7 +98,7 @@ function Landing() {
 function Hero() {
   const sideCards = feedItems.slice(0, 4);
   return (
-    <section className="relative overflow-hidden px-5 pb-16 pt-20 md:pt-28">
+    <section className="relative min-w-0 overflow-hidden px-4 pb-16 pt-20 sm:px-5 md:pt-28">
       {/* Ambient gradient background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute inset-x-0 top-0 h-[720px] bg-[radial-gradient(60%_60%_at_50%_10%,rgba(34,211,238,0.20),transparent_70%)]" />
@@ -122,13 +122,13 @@ function Hero() {
         <FloatingCard item={sideCards[3]} rotate={-6} />
       </div>
 
-      <div className="relative mx-auto max-w-4xl text-center">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.24em] text-neon backdrop-blur-xl">
+      <div className="relative mx-auto w-full min-w-0 max-w-4xl text-center">
+        <div className="mx-auto mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-surface/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-neon backdrop-blur-xl sm:tracking-[0.24em]">
           <span className="size-1.5 animate-pulse rounded-full bg-neon" />
           AI Music Studio · Bêta ouverte
         </div>
 
-        <h1 className="text-balance text-[44px] font-semibold leading-[1.02] tracking-tight md:text-7xl">
+        <h1 className="break-words text-balance text-[clamp(2.35rem,11vw,4.5rem)] font-semibold leading-[1.02] tracking-tight">
           Make a{" "}
           <span className="bg-gradient-to-br from-neon via-cyan-200 to-fuchsia-400 bg-clip-text text-transparent">
             house song
@@ -571,10 +571,11 @@ const pricingPlans: PricingPlan[] = [
     cta: "S'inscrire",
     ctaStyle: "outline",
     features: [
-      { label: "Accès à BeatStudio v4.5-all", included: true },
-      { label: "50 crédits renouvelés chaque jour", included: true },
+      { label: "Accès à Loopster v4.5-all", included: true },
+      { label: "80 crédits renouvelés chaque jour", included: true },
       { label: "Usage commercial", included: false },
       { label: "Fonctionnalités standard uniquement", included: true },
+      { label: "Téléchargements réservés aux abonnés", included: false },
       { label: "Upload jusqu'à 8 min d'audio", included: true },
       { label: "File de génération partagée", included: true },
       { label: "Achat de crédits add-on", included: false },
@@ -618,7 +619,7 @@ const pricingPlans: PricingPlan[] = [
     cta: "S'abonner",
     ctaStyle: "solid",
     features: [
-      { label: "Accès à BeatStudio Studio", included: true },
+      { label: "Accès à Loopster Studio", included: true },
       { label: "Accès au meilleur modèle v5.5", included: true },
       { label: "10 000 crédits, renouvelés chaque mois", included: true },
       { label: "Droits commerciaux sur toutes les créations", included: true },
@@ -791,7 +792,7 @@ const faqs = [
   },
   {
     q: "Y a-t-il une version offline ou desktop ?",
-    a: "Pas encore. BeatStudio est web-first et mobile-first. Une app native iOS/Android est en préparation.",
+    a: "Pas encore. Loopster est web-first et mobile-first. Une app native iOS/Android est en préparation.",
   },
   {
     q: "Comment sont formés vos modèles ?",
@@ -829,34 +830,34 @@ function Faq() {
 /* ---------------- FINAL CTA ---------------- */
 function FinalCta() {
   return (
-    <section className="px-5 pb-24 md:pb-32">
+    <section className="px-4 pb-24 sm:px-5 md:pb-32">
       <div className="mx-auto max-w-5xl">
-        <div className="relative overflow-hidden rounded-[36px] border border-neon/20 bg-gradient-to-br from-neon/15 via-surface to-surface p-10 text-center md:p-16">
+        <div className="relative overflow-hidden rounded-[28px] border border-neon/20 bg-gradient-to-br from-neon/15 via-surface to-surface p-6 text-center sm:p-10 md:rounded-[36px] md:p-16">
           <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-[600px] -translate-x-1/2 bg-[radial-gradient(50%_50%_at_50%_50%,rgba(34,211,238,0.35),transparent_70%)]" />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/40 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.24em] text-neon">
             <Users className="size-3" /> 3 400+ créateurs
           </div>
-          <h2 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+          <h2 className="text-balance text-[clamp(2rem,9vw,3rem)] font-semibold leading-[1.05] tracking-tight md:text-6xl">
             Prêt à composer votre <br className="hidden md:block" />
             <span className="bg-gradient-to-br from-neon to-fuchsia-400 bg-clip-text text-transparent">
               premier morceau ?
             </span>
           </h2>
-          <p className="mx-auto mt-4 max-w-lg text-sm text-zinc-400 md:text-base">
-            480 crédits offerts, aucune carte requise. Créez votre première piste en moins de 60
+          <p className="mx-auto mt-4 max-w-full text-sm text-zinc-400 sm:max-w-lg md:text-base">
+            80 crédits offerts chaque jour, aucune carte requise. Créez votre première piste en moins de 60
             secondes.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-2 sm:flex-row">
             <Link
               to="/auth"
-              className="neon-pulse inline-flex items-center justify-center gap-2 rounded-full bg-neon px-6 py-3.5 text-sm font-semibold text-background"
+              className="neon-pulse inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-neon px-4 py-3.5 text-sm font-semibold text-background sm:w-auto sm:px-6"
             >
               Commencer gratuitement
               <ArrowRight className="size-4" />
             </Link>
             <a
               href="#gallery"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-sm font-medium hover:bg-white/[0.06]"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm font-medium hover:bg-white/[0.06] sm:w-auto sm:px-6"
             >
               Voir des exemples
             </a>

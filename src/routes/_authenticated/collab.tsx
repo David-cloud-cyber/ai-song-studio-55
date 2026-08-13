@@ -26,7 +26,7 @@ type Sender = {
 export const Route = createFileRoute("/_authenticated/collab")({
   head: () => ({
     meta: [
-      { title: "Collab · BeatStudio AI" },
+      { title: "Collab · Loopster" },
       {
         name: "description",
         content: "Salon collaboratif temps réel avec chat live et présence d'équipe.",
@@ -124,7 +124,7 @@ function CollabPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold">Session ouverte</h1>
             <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
-              Discutez avec la communauté BeatStudio en direct
+              Discutez avec la communauté Loopster en direct
             </p>
           </div>
         </div>

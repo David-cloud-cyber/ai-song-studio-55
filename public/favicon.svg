@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Loopster</title>
+  <defs>
+    <linearGradient id="loopster-favicon" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#090b10"/>
+  <path d="M17 16v24q0 8 8 8h7M16 32c7-12 15-12 22 0s15 12 22 0-15-12-22 0-15 12-22 0Z" fill="none" stroke="url(#loopster-favicon)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="51" cy="48" r="3" fill="#22d3ee"/>
+</svg>

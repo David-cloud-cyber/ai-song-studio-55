@@ -1,15 +1,17 @@
 import { Link } from "@tanstack/react-router";
-import { user } from "@/data/mock";
+import { useProfile } from "@/hooks/use-profile";
+import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 
 export function TopBar() {
+  const { data: profile } = useProfile();
+  const credits = profile?.credits ?? 0;
+  const initials = profile?.initials ?? "??";
+  const color = profile?.color ?? "from-cyan-400 to-fuchsia-600";
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-md items-center justify-between px-5">
         <Link to="/studio" className="flex items-center gap-2">
-          <span className="grid size-7 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.45)]">
-            <span className="size-2.5 rotate-45 rounded-[2px] bg-background" />
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight">BeatStudio</span>
+          <LoopsterLogo compact imageClassName="size-7" />
         </Link>
 
         <div className="flex items-center gap-2.5">
@@ -19,14 +21,14 @@ export function TopBar() {
           >
             <span className="size-1.5 animate-pulse rounded-full bg-neon" />
             <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
-              {user.credits} CR
+              {credits} CR
             </span>
           </Link>
           <Link
             to="/settings"
-            className={`grid size-8 place-items-center rounded-full bg-gradient-to-br ${user.color} text-[11px] font-semibold text-background ring-1 ring-white/10`}
+            className={`grid size-8 place-items-center rounded-full bg-gradient-to-br ${color} text-[11px] font-semibold text-background ring-1 ring-white/10`}
           >
-            {user.initials}
+            {initials}
           </Link>
         </div>
       </div>

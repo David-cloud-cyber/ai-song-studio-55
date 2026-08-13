@@ -1,9 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { projects, stems, timelineClips } from "@/data/mock";
+import { useQuery } from "@tanstack/react-query";
+import { notFound } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/use-profile";
+import { isPaidPlan } from "@/lib/plans";
+import { stems, timelineClips } from "@/data/mock";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { WaveformBars } from "@/components/studio/WaveformBars";
 import { CoverArt } from "@/components/studio/CoverArt";
+import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { soon } from "@/lib/toast";
 import {
   ArrowLeft,
@@ -25,7 +31,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/editor/$projectId")({
   head: () => ({
     meta: [
-      { title: "Éditeur · BeatStudio AI" },
+      { title: "Éditeur · Loopster" },
       {
         name: "description",
         content: "Timeline multipiste, réglages audio et aperçus en temps réel.",
@@ -37,14 +43,44 @@ export const Route = createFileRoute("/_authenticated/editor/$projectId")({
 
 function EditorPage() {
   const { projectId } = Route.useParams();
-  const project = projects.find((p) => p.id === projectId) ?? projects[0];
+  const { data: profile } = useProfile();
+  const canDownload = isPaidPlan(profile);
+  const { data: project, isLoading } = useQuery({
+    queryKey: ["editor-project", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,title,genre,status,cover_gradient,image_url,cover_url,audio_url,duration_seconds,progress")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw notFound();
+      const seed = data.id.charCodeAt(0) + data.id.length;
+      return {
+        ...data,
+        genre: data.genre ?? "Projet",
+        status: data.status === "ready" || data.status === "rendering" ? data.status : "draft",
+        coverGradient: data.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700",
+        cover: data.image_url ?? data.cover_url,
+        waveform: Array.from({ length: 48 }, (_, i) => Math.max(0.15, Math.abs(Math.sin(seed + i * 0.7)) * 0.75 + 0.2)),
+        bpm: 0,
+        duration: data.duration_seconds
+          ? `${Math.floor(data.duration_seconds / 60)}:${String(data.duration_seconds % 60).padStart(2, "0")}`
+          : "—",
+      };
+    },
+  });
   const [playing, setPlaying] = useState(true);
   const [playhead, setPlayhead] = useState(38);
   const [selected, setSelected] = useState<string | null>("c5");
   const [reverb, setReverb] = useState(28);
   const [compression, setCompression] = useState(64);
-  const [tempo, setTempo] = useState(project.bpm);
+  const [tempo, setTempo] = useState(0);
   const [master, setMaster] = useState(80);
+
+  if (isLoading || !project) {
+    return <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">Chargement…</div>;
+  }
 
   return (
     <PageTransition>
@@ -87,7 +123,10 @@ function EditorPage() {
           {/* Preview */}
           <div className="overflow-hidden rounded-2xl border border-white/5 bg-surface">
             <div className="relative">
-              <CoverArt gradient={project.coverGradient} className="aspect-[16/9] rounded-none">
+              {project.cover ? (
+                <img src={project.cover} alt={`Pochette de ${project.title}`} className="aspect-[16/9] w-full object-cover" />
+              ) : (
+                <CoverArt gradient={project.coverGradient} className="aspect-[16/9] rounded-none">
                 <div className="absolute inset-0 flex items-center justify-center">
                   <button
                     onClick={() => setPlaying((p) => !p)}
@@ -103,7 +142,8 @@ function EditorPage() {
                 <div className="absolute inset-x-4 bottom-4 h-10">
                   <WaveformBars peaks={project.waveform} />
                 </div>
-              </CoverArt>
+                </CoverArt>
+              )}
               <div className="absolute inset-x-0 top-3 flex items-center justify-between px-4">
                 <span className="rounded-full bg-background/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neon backdrop-blur">
                   ● LIVE PREVIEW
@@ -113,6 +153,16 @@ function EditorPage() {
                 </span>
               </div>
             </div>
+
+            {project.audio_url && (
+              <AudioPlayer
+                src={project.audio_url}
+                seed={project.id}
+                label="Master réel"
+                canDownload={canDownload}
+                className="m-3"
+              />
+            )}
 
             {/* Transport */}
             <div className="flex items-center gap-2 border-t border-white/5 px-3 py-2.5">

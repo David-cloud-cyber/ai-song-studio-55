@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/templates")({
   head: () => ({
     meta: [
-      { title: "Templates · BeatStudio AI" },
+      { title: "Templates · Loopster" },
       {
         name: "description",
         content: "Modèles créatifs filtrables par genre, mood, durée et voix.",

@@ -5,11 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useSession } from "@/hooks/use-session";
 import { useProfile } from "@/hooks/use-profile";
-import { generateTrack, COSTS } from "@/lib/suno.functions";
+import { generateTrack, generateUploadedTrack, COSTS } from "@/lib/suno.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { genres, moods, voices, templates } from "@/data/mock";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
-import { Sparkles, Music, Mic2, Clock, Sliders, MicOff, Loader2, Cpu } from "lucide-react";
+import { Sparkles, Music, Mic2, Clock, Sliders, MicOff, Loader2, Cpu, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -31,12 +32,12 @@ export const Route = createFileRoute("/_authenticated/create")({
   validateSearch: z.object({ template: z.string().optional() }),
   head: () => ({
     meta: [
-      { title: "Créer · BeatStudio AI" },
+      { title: "Créer · Loopster" },
       {
         name: "description",
         content: "Composez votre prochain titre : prompt, genre, mood, voix, instrumentale.",
       },
-      { property: "og:title", content: "Créer un morceau · BeatStudio AI" },
+      { property: "og:title", content: "Créer un morceau · Loopster" },
       {
         property: "og:description",
         content: "Génération musicale IA : chanson, instrumentale, extension et stems.",
@@ -55,6 +56,7 @@ function CreatePage() {
   const { user } = useSession();
   const { data: profile } = useProfile();
   const generate = useServerFn(generateTrack);
+  const generateUploaded = useServerFn(generateUploadedTrack);
 
   const [prompt, setPrompt] = useState(
     "Un morceau phonk nocturne avec basses saturées, sensation de course en voiture sous la pluie.",
@@ -68,6 +70,7 @@ function CreatePage() {
   const [duration, setDuration] = useState(180);
   const [bpm, setBpm] = useState(120);
   const [generating, setGenerating] = useState(false);
+  const [sourceAudio, setSourceAudio] = useState<File | null>(null);
 
   const template = templates.find((t) => t.id === search.template) ?? templates[0];
   const cost = instrumental ? COSTS.instrumental : COSTS.song;
@@ -76,7 +79,9 @@ function CreatePage() {
   const launch = async () => {
     if (!user) return;
     if (!enough) {
-      toast.error("Crédits insuffisants", { description: `Il faut ${cost} crédits.` });
+      toast.error("Il te manque un peu d'élan", {
+        description: `Il te faut encore ${cost} crédits pour lancer ce morceau.`,
+      });
       return;
     }
     setGenerating(true);
@@ -85,33 +90,65 @@ function CreatePage() {
         .filter(Boolean)
         .join(", ");
 
-      const res = await generate({
-        data: {
-          title,
-          prompt,
-          style,
-          genre,
-          mood,
-          voice,
-          instrumental,
-          customMode: true,
-          model,
-          durationSeconds: duration,
-          coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
-        },
-      });
+      let res;
+      if (sourceAudio) {
+        if (!sourceAudio.type.startsWith("audio/") || sourceAudio.size > 50 * 1024 * 1024) {
+          throw new Error("Choisissez un fichier audio de moins de 50 Mo.");
+        }
+        const extension = sourceAudio.name.split(".").pop()?.toLowerCase() || "audio";
+        const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
+        const upload = await supabase.storage.from("audio-inputs").upload(path, sourceAudio, {
+          cacheControl: "3600",
+          contentType: sourceAudio.type || "audio/mpeg",
+          upsert: false,
+        });
+        if (upload.error) throw new Error(`Import audio impossible : ${upload.error.message}`);
+        const signed = await supabase.storage.from("audio-inputs").createSignedUrl(path, 3600);
+        if (signed.error || !signed.data?.signedUrl) {
+          throw new Error(`URL audio impossible : ${signed.error?.message ?? "erreur inconnue"}`);
+        }
+        res = await generateUploaded({
+          data: {
+            title,
+            prompt,
+            uploadUrl: signed.data.signedUrl,
+            style,
+            genre,
+            mood,
+            instrumental,
+            model,
+            coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+          },
+        });
+      } else {
+        res = await generate({
+          data: {
+            title,
+            prompt,
+            style,
+            genre,
+            mood,
+            voice,
+            instrumental,
+            customMode: true,
+            model,
+            durationSeconds: duration,
+            coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+          },
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["credit-transactions"] });
 
-      toast.success("Génération lancée", {
-        description: `${res.creditsSpent} crédits débités · rendu en cours (1 à 3 min).`,
+      toast.success("C'est parti, ça compose !", {
+        description: `${res.creditsSpent} crédits utilisés · ton morceau arrive bientôt.`,
       });
       navigate({ to: "/library/$projectId", params: { projectId: res.projectId } });
-    } catch (err) {
-      toast.error("Génération impossible", {
-        description: err instanceof Error ? err.message : "Réessayez dans un instant",
+    } catch {
+      toast.error("Le morceau fait une petite pause", {
+        description: "On retente dans un instant ?",
       });
     } finally {
       setGenerating(false);
@@ -151,6 +188,37 @@ function CreatePage() {
                 + {s}
               </button>
             ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3">
+            <input
+              id="source-audio"
+              type="file"
+              accept="audio/*"
+              className="sr-only"
+              onChange={(event) => setSourceAudio(event.target.files?.[0] ?? null)}
+            />
+            {sourceAudio ? (
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+                  <Music className="size-4 shrink-0 text-neon" />
+                  <span className="truncate">{sourceAudio.name}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSourceAudio(null)}
+                  className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/10 hover:text-foreground"
+                  aria-label="Retirer l'audio"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <label htmlFor="source-audio" className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400 hover:text-foreground">
+                <Upload className="size-4 text-neon" />
+                Importer un audio à remixer ou transformer
+              </label>
+            )}
+            <p className="mt-2 text-[10px] text-zinc-600">MP3, WAV ou M4A · durée recommandée : 8 min maximum</p>
           </div>
         </div>
       </section>
@@ -285,7 +353,7 @@ function CreatePage() {
         >
           {generating ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Envoi au moteur IA…
+              <Loader2 className="size-4 animate-spin" /> On compose ton morceau…
             </>
           ) : (
             <>

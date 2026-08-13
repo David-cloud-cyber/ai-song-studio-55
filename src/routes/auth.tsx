@@ -12,7 +12,7 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Connexion · BeatStudio AI" },
+      { title: "Connexion · Loopster" },
       {
         name: "description",
         content:
@@ -74,9 +74,10 @@ function AuthPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate({ to: (search.redirect as "/library") ?? "/library" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erreur";
-      toast.error("Oups", { description: msg });
+    } catch {
+      toast.error("Oups, petit contretemps", {
+        description: "On réessaie ? Tes informations sont toujours là.",
+      });
     } finally {
       setBusy(false);
     }
@@ -89,8 +90,10 @@ function AuthPage() {
         redirect_uri: window.location.origin,
       });
       if (result.error) throw result.error;
-    } catch (err) {
-      toast.error("Google", { description: err instanceof Error ? err.message : "Erreur" });
+    } catch {
+      toast.error("Connexion interrompue", {
+        description: "Pas de souci, on peut retenter quand tu veux.",
+      });
     } finally {
       setBusy(false);
     }
@@ -104,7 +107,7 @@ function AuthPage() {
           <span className="grid size-9 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
             <span className="size-3 rotate-45 rounded-[3px] bg-background" />
           </span>
-          <span className="text-lg font-semibold tracking-tight">BeatStudio</span>
+          <span className="text-lg font-semibold tracking-tight">Loopster</span>
         </Link>
 
         <div className="rounded-3xl border border-white/10 bg-surface/80 p-6 backdrop-blur-xl">
@@ -120,7 +123,7 @@ function AuthPage() {
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
             {mode === "signup"
-              ? "480 crédits offerts à l'inscription."
+              ? "80 crédits offerts chaque jour."
               : mode === "forgot"
                 ? "Recevez un lien par email."
                 : "Reprenez votre dernière session."}

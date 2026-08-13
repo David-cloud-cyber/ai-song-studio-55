@@ -46,9 +46,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight">Cette page n'a pas chargé</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Loopster fait une petite pause</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Un souci côté studio. Réessayez ou retournez à l'accueil.
+          Un petit contretemps s'est glissé dans la musique. Réessayez ou retournez à l'accueil.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -78,14 +78,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0a0a0c" },
-      { title: "BeatStudio AI — Créez musique, clips et pochettes par IA" },
+      { title: "Loopster — Créez musique, clips et pochettes par IA" },
       {
         name: "description",
         content:
-          "BeatStudio AI est le studio créatif nouvelle génération : générez chansons, clips vidéo, instrumentales, paroles et pochettes à partir d'un simple prompt.",
+          "Loopster est le studio créatif nouvelle génération : générez chansons, clips vidéo, instrumentales, paroles et pochettes à partir d'un simple prompt.",
       },
-      { name: "author", content: "BeatStudio AI" },
-      { property: "og:title", content: "BeatStudio AI — Studio de création musicale IA" },
+      { name: "author", content: "Loopster" },
+      { property: "og:title", content: "Loopster — Studio de création musicale IA" },
       {
         property: "og:description",
         content:
@@ -96,7 +96,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml", sizes: "any" },
+      { rel: "mask-icon", href: "/favicon.svg", color: "#22d3ee" },
+      { rel: "apple-touch-icon", href: "/loopster-mark.svg" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

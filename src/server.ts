@@ -35,6 +35,25 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+function addDocumentHeaders(response: Response): Response {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) return response;
+
+  const headers = new Headers(response.headers);
+  // Keep the document and its hashed CSS/JS asset references in sync on mobile
+  // browsers that otherwise retain an older HTML shell after a deployment.
+  headers.set("cache-control", "no-store, max-age=0, must-revalidate");
+  headers.set("cdn-cache-control", "no-store");
+  headers.set("surrogate-control", "no-store");
+  headers.set("pragma", "no-cache");
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function isH3SwallowedErrorBody(body: string): boolean {
   try {
     const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
@@ -49,12 +68,17 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return addDocumentHeaders(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store, max-age=0, must-revalidate",
+          "cdn-cache-control": "no-store",
+          "surrogate-control": "no-store",
+        },
       });
     }
   },

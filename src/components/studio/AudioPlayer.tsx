@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Download } from "lucide-react";
+import { Play, Pause, Download, Lock } from "lucide-react";
 import { WaveformBars } from "./WaveformBars";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +22,14 @@ export function AudioPlayer({
   seed,
   label,
   downloadName,
+  canDownload = false,
   className,
 }: {
   src: string;
   seed: string;
   label?: string;
   downloadName?: string;
+  canDownload?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLAudioElement | null>(null);
@@ -93,16 +95,27 @@ export function AudioPlayer({
           </div>
         </div>
 
-        <a
-          href={src}
-          download={downloadName ?? true}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Télécharger"
-          className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface text-zinc-300 hover:text-neon"
-        >
-          <Download className="size-4" />
-        </a>
+        {canDownload ? (
+          <a
+            href={src}
+            download={downloadName ?? true}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Télécharger"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface text-zinc-300 hover:text-neon"
+          >
+            <Download className="size-4" />
+          </a>
+        ) : (
+          <a
+            href="/credits"
+            aria-label="Débloquer le téléchargement"
+            title="Passe à une formule payante pour télécharger"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-neon/20 bg-neon/5 text-neon hover:bg-neon/10"
+          >
+            <Lock className="size-3.5" />
+          </a>
+        )}
       </div>
 
       <audio

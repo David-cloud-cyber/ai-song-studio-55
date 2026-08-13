@@ -7,7 +7,7 @@ import { Lock, Loader2, ArrowRight } from "lucide-react";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Nouveau mot de passe · BeatStudio AI" },
+      { title: "Nouveau mot de passe · Loopster" },
       { name: "description", content: "Choisissez un nouveau mot de passe pour votre compte." },
     ],
   }),
@@ -39,8 +39,10 @@ function ResetPasswordPage() {
       if (error) throw error;
       toast.success("Mot de passe mis à jour");
       navigate({ to: "/library" });
-    } catch (err) {
-      toast.error("Oups", { description: err instanceof Error ? err.message : "Erreur" });
+    } catch {
+      toast.error("Oups, petit contretemps", {
+        description: "On réessaie dans un instant ?",
+      });
     } finally {
       setBusy(false);
     }

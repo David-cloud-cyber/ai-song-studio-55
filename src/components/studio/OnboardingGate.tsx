@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 
-const KEY = "beatstudio.onboarded.v1";
+const KEY = "loopster.onboarded.v1";
 
 export function OnboardingGate() {
   const navigate = useNavigate();

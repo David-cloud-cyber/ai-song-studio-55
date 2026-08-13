@@ -132,6 +132,8 @@ export type Database = {
           color: string | null
           created_at: string
           credits: number
+          daily_credits_reset_at: string
+          daily_credits_used: number
           display_name: string | null
           handle: string | null
           id: string
@@ -140,6 +142,8 @@ export type Database = {
           preferred_mood: string | null
           preferred_style: string | null
           preferred_voice: string | null
+          plan: string
+          subscription_status: string
           updated_at: string
         }
         Insert: {
@@ -147,6 +151,8 @@ export type Database = {
           color?: string | null
           created_at?: string
           credits?: number
+          daily_credits_reset_at?: string
+          daily_credits_used?: number
           display_name?: string | null
           handle?: string | null
           id: string
@@ -155,6 +161,8 @@ export type Database = {
           preferred_mood?: string | null
           preferred_style?: string | null
           preferred_voice?: string | null
+          plan?: string
+          subscription_status?: string
           updated_at?: string
         }
         Update: {
@@ -162,6 +170,8 @@ export type Database = {
           color?: string | null
           created_at?: string
           credits?: number
+          daily_credits_reset_at?: string
+          daily_credits_used?: number
           display_name?: string | null
           handle?: string | null
           id?: string
@@ -170,6 +180,8 @@ export type Database = {
           preferred_mood?: string | null
           preferred_style?: string | null
           preferred_voice?: string | null
+          plan?: string
+          subscription_status?: string
           updated_at?: string
         }
         Relationships: []
@@ -203,6 +215,7 @@ export type Database = {
           updated_at: string
           user_id: string
           video_url: string | null
+          wav_url: string | null
           voice: string | null
         }
         Insert: {
@@ -233,6 +246,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           video_url?: string | null
+          wav_url?: string | null
           voice?: string | null
         }
         Update: {
@@ -263,6 +277,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           video_url?: string | null
+          wav_url?: string | null
           voice?: string | null
         }
         Relationships: [

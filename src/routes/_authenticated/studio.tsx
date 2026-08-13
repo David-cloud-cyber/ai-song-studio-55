@@ -1,5 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { projects, templates, user } from "@/data/mock";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-session";
+import { useProfile } from "@/hooks/use-profile";
+import { templates } from "@/data/mock";
+import type { Project } from "@/data/mock";
 import { ProjectCard } from "@/components/studio/ProjectCard";
 import { TemplateTile } from "@/components/studio/TemplateTile";
 import { SectionHeader } from "@/components/studio/SectionHeader";
@@ -7,10 +12,53 @@ import { CollabCard } from "@/components/studio/CollabCard";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { ArrowRight, Sparkles } from "lucide-react";
 
+type DbProject = {
+  id: string;
+  title: string;
+  genre: string | null;
+  mood: string | null;
+  duration_seconds: number | null;
+  status: string;
+  cover_gradient: string | null;
+  created_at: string;
+  progress: number;
+};
+
+const fallbackGradient = "from-cyan-400 via-blue-600 to-fuchsia-700";
+
+function wave(seed: string, length = 32) {
+  const value = seed.charCodeAt(0) + seed.length;
+  return Array.from({ length }, (_, index) =>
+    Math.max(0.15, Math.abs(Math.sin(value + index * 0.7)) * 0.75 + 0.2),
+  );
+}
+
+function duration(seconds: number | null) {
+  if (!seconds) return "—";
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function toCardProject(project: DbProject): Project {
+  return {
+    id: project.id,
+    title: project.title,
+    genre: project.genre ?? "Projet",
+    bpm: 0,
+    duration: duration(project.duration_seconds),
+    kind: "song",
+    status: project.status === "ready" || project.status === "rendering" ? project.status : "draft",
+    coverGradient: project.cover_gradient ?? fallbackGradient,
+    waveform: wave(project.id),
+    author: "Vous",
+    createdAt: new Date(project.created_at).toLocaleDateString("fr-FR"),
+    progress: project.progress,
+  };
+}
+
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
     meta: [
-      { title: "Studio · BeatStudio AI" },
+      { title: "Studio · Loopster" },
       {
         name: "description",
         content:
@@ -22,7 +70,24 @@ export const Route = createFileRoute("/_authenticated/studio")({
 });
 
 function Studio() {
-  const recent = projects.slice(0, 6);
+  const { user } = useSession();
+  const { data: profile } = useProfile();
+  const { data: recent = [], isLoading } = useQuery({
+    queryKey: ["studio-projects", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,title,genre,mood,duration_seconds,status,cover_gradient,created_at,progress")
+        .order("created_at", { ascending: false })
+        .limit(6);
+      if (error) throw error;
+      return (data as DbProject[]).map(toCardProject);
+    },
+  });
+  const firstProject = recent[0];
+  const firstName = (profile?.display_name ?? "Créateur").split(" ")[0];
+
   return (
     <PageTransition>
       <section className="px-5 pb-6 pt-8">
@@ -30,9 +95,13 @@ function Studio() {
           Session · {new Date().toLocaleDateString("fr-FR", { weekday: "long" })}
         </div>
         <h1 className="text-3xl font-semibold leading-[1.05] tracking-tight text-balance">
-          Bonsoir <span className="text-neon">{user.name.split(" ")[0]}</span>.
+          Bonsoir <span className="text-neon">{firstName}</span>.
           <br />
-          On termine <span className="text-zinc-400">Midnight Whispers</span> ?
+          {firstProject ? (
+            <>On reprend <span className="text-zinc-400">{firstProject.title}</span> ?</>
+          ) : (
+            <>On crée votre <span className="text-zinc-400">premier morceau</span> ?</>
+          )}
         </h1>
         <div className="mt-5 flex gap-2">
           <Link
@@ -65,9 +134,15 @@ function Studio() {
           />
         </div>
         <div className="no-scrollbar flex gap-4 overflow-x-auto px-5 pb-2">
-          {recent.map((p) => (
-            <ProjectCard key={p.id} project={p} />
-          ))}
+          {isLoading ? (
+            <div className="px-5 text-sm text-zinc-500">Chargement de vos projets…</div>
+          ) : recent.length > 0 ? (
+            recent.map((p) => <ProjectCard key={p.id} project={p} />)
+          ) : (
+            <div className="px-5 text-sm text-zinc-500">
+              Aucune création pour l’instant. Lancez votre première génération.
+            </div>
+          )}
         </div>
       </section>
 

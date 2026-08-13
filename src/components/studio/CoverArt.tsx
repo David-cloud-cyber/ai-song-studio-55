@@ -22,7 +22,7 @@ export function CoverArt({ gradient, title, className, children }: Props) {
       {title && (
         <div className="absolute inset-x-0 bottom-0 p-3">
           <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/70">
-            BeatStudio · AI
+            Loopster · AI
           </div>
           <div className="text-sm font-semibold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
             {title}

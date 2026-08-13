@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
+  <title id="title">Loopster</title>
+  <desc id="desc">Loopster wordmark with an infinity loop symbol</desc>
+  <defs>
+    <linearGradient id="wordmark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.72" stop-color="#f4fbff"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke="url(#wordmark)" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path stroke-width="15" d="M35 24v59q0 12 12 12h39"/>
+    <path stroke-width="15" d="M116 61c22-31 54-31 76 0s54 31 76 0-54-31-76 0-54 31-76 0Z"/>
+  </g>
+  <g fill="url(#wordmark)" font-family="Inter, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="5">
+    <text x="288" y="91">STER</text>
+  </g>
+</svg>

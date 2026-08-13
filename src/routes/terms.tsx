@@ -6,11 +6,11 @@ import { FileText, ShieldCheck, Scale, AlertCircle } from "lucide-react";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Conditions Générales d'Utilisation (CGU) · BeatStudio AI" },
+      { title: "Conditions Générales d'Utilisation (CGU) · Loopster" },
       {
         name: "description",
         content:
-          "Conditions Générales d'Utilisation du service de génération musicale BeatStudio AI.",
+          "Conditions Générales d'Utilisation du service de génération musicale Loopster.",
       },
     ],
   }),
@@ -24,7 +24,7 @@ function TermsPage() {
         <SectionHeader
           eyebrow="Cadre Contractuel"
           title="Conditions Générales d'Utilisation"
-          description="Dernière mise à jour : 28 Juillet 2026. Veuillez lire attentivement les présentes conditions régissant l'utilisation de BeatStudio AI."
+          description="Dernière mise à jour : 28 Juillet 2026. Veuillez lire attentivement les présentes conditions régissant l'utilisation de Loopster."
         />
 
         <div className="mt-10 space-y-8 rounded-2xl border border-white/10 bg-surface/50 p-6 md:p-10 text-zinc-300 text-sm leading-relaxed">
@@ -35,8 +35,8 @@ function TermsPage() {
             </h2>
             <p>
               Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») ont pour objet de
-              définir les modalités d'accès et d'utilisation de la plateforme BeatStudio AI
-              (ci-après « le Service »), éditée par la société BeatStudio SAS.
+              définir les modalités d'accès et d'utilisation de la plateforme Loopster
+              (ci-après « le Service »), éditée par la société Loopster.
             </p>
             <p>
               L'accès au Service implique l'acceptation sans réserve des présentes CGU par
@@ -93,7 +93,7 @@ function TermsPage() {
               <AlertCircle className="size-5 text-neon" />
               4. Règles de Conduite et Interdictions
             </h2>
-            <p>Il est strictement interdit d'utiliser BeatStudio AI pour :</p>
+            <p>Il est strictement interdit d'utiliser Loopster pour :</p>
             <ul className="list-disc pl-5 space-y-1 text-zinc-400">
               <li>Générer des contenus haineux, diffamatoires, discriminatoires ou illégaux.</li>
               <li>
@@ -110,7 +110,7 @@ function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">5. Limitation de Responsabilité</h2>
             <p>
-              BeatStudio AI met en œuvre tous les moyens raisonnables pour garantir une
+              Loopster met en œuvre tous les moyens raisonnables pour garantir une
               disponibilité continue du Service. Toutefois, nous ne garantissons pas une continuité
               ininterrompue en cas de maintenance ou de panne du réseau tiers.
             </p>

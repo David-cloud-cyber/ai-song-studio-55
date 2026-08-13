@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Check, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { soon } from "@/lib/toast";
+import { FREE_DAILY_CREDITS, isPaidPlan } from "@/lib/plans";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,7 @@ import {
 export const Route = createFileRoute("/_authenticated/credits")({
   head: () => ({
     meta: [
-      { title: "Crédits · BeatStudio AI" },
+      { title: "Crédits · Loopster" },
       { name: "description", content: "Boutique de crédits, forfaits et historique d'usage." },
     ],
   }),
@@ -42,7 +43,8 @@ function CreditsPage() {
   const { user } = useSession();
   const { data: profile } = useProfile();
   const credits = profile?.credits ?? 0;
-  const max = 1000;
+  const paid = isPaidPlan(profile);
+  const max = profile?.plan?.toLowerCase() === "premier" ? 10000 : paid ? 2500 : FREE_DAILY_CREDITS;
   const pct = Math.min(100, Math.round((credits / max) * 100));
   const [selectedPack, setSelectedPack] = useState<CreditPack | null>(null);
 
@@ -62,7 +64,7 @@ function CreditsPage() {
 
   const confirm = () => {
     setSelectedPack(null);
-    soon("Paiement bientôt disponible (phase 2)");
+    soon("Les recharges arrivent bientôt ✨");
   };
 
   return (
@@ -185,7 +187,7 @@ function CreditsPage() {
                 ))}
               </ul>
               <button
-                onClick={() => soon("Abonnements bientôt disponibles (phase 2)")}
+                onClick={() => soon("Les formules arrivent bientôt ✨")}
                 disabled={p.current}
                 className={cn(
                   "mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-colors",

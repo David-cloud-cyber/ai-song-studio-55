@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 
 export function MarketingNav() {
   const [scrolled, setScrolled] = useState(false);
@@ -21,26 +22,29 @@ export function MarketingNav() {
           : "border-b border-transparent",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
-            <span className="size-3 rotate-45 rounded-[3px] bg-background" />
+      <div className="mx-auto flex h-16 min-w-0 max-w-7xl items-center justify-between gap-3 px-4 sm:gap-4 sm:px-5 md:px-8">
+        <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2">
+          <span className="sm:hidden">
+            <LoopsterLogo compact className="size-8" imageClassName="size-8" />
           </span>
-          <span className="text-[15px] font-semibold tracking-tight">BeatStudio</span>
+          <span className="hidden min-w-0 sm:inline-flex">
+            <LoopsterLogo className="h-8 max-w-full" imageClassName="h-8 w-[180px] max-w-full" />
+          </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link
             to="/auth"
-            className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.06]"
+            className="hidden min-h-10 items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.06] sm:inline-flex sm:px-4"
           >
             Connexion
           </Link>
           <Link
             to="/auth"
-            className="rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition-transform hover:scale-[1.02]"
+            className="inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-foreground px-3 py-2 text-xs font-semibold text-background transition-transform hover:scale-[1.02] sm:px-4 sm:text-sm"
           >
-            Rejoindre gratuitement
+            <span className="sm:hidden">Créer</span>
+            <span className="hidden sm:inline">Rejoindre gratuitement</span>
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "./use-session";
+import { FREE_DAILY_CREDITS, isPaidPlan } from "@/lib/plans";
 
 export type Profile = {
   id: string;
@@ -14,6 +15,8 @@ export type Profile = {
   preferred_mood: string | null;
   preferred_voice: string | null;
   credits: number;
+  plan: string;
+  subscription_status: string;
 };
 
 export function useProfile() {
@@ -29,7 +32,14 @@ export function useProfile() {
         .eq("id", user.id)
         .maybeSingle();
       if (error) throw error;
-      return data as Profile | null;
+      if (!data) return null;
+      const profile = data as Profile;
+      return {
+        ...profile,
+        credits: isPaidPlan(profile)
+          ? profile.credits
+          : Math.min(profile.credits, FREE_DAILY_CREDITS),
+      };
     },
   });
 }

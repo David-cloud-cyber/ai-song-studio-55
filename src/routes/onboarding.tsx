@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
-      { title: "Bienvenue · BeatStudio AI" },
+      { title: "Bienvenue · Loopster" },
       { name: "description", content: "Configurez votre studio en quelques étapes." },
     ],
   }),
@@ -46,7 +46,7 @@ function OnboardingPage() {
     <div className="mx-auto flex min-h-screen max-w-md flex-col px-5 pt-10 md:max-w-lg md:pt-16">
       <div className="mb-8 flex items-center justify-between">
         <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">
-          BeatStudio · Onboarding
+          Loopster · Onboarding
         </div>
         <button
           onClick={finish}
@@ -195,13 +195,13 @@ function OnboardingPage() {
                 <div className="mx-auto grid size-20 place-items-center rounded-full bg-neon/15 ring-1 ring-neon/40">
                   <Gift className="size-9 text-neon" />
                 </div>
-                <h1 className="mt-6 text-3xl font-semibold tracking-tight">480 crédits offerts</h1>
+                <h1 className="mt-6 text-3xl font-semibold tracking-tight">80 crédits offerts chaque jour</h1>
                 <p className="mt-2 text-sm text-zinc-400">
                   De quoi générer une chanson complète, une pochette et un clip.
                 </p>
                 <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left">
                   {[
-                    "480 crédits ajoutés à ton studio",
+                    "80 crédits ajoutés à ton studio chaque jour",
                     "Style " + (style ?? "personnalisé") + " calibré",
                     "1 rendu prioritaire offert",
                     "Accès à la Library & au Feed",

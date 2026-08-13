@@ -7,11 +7,11 @@ import { Mail, MessageSquare, Send, CheckCircle2, MapPin, Clock } from "lucide-r
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact · BeatStudio AI" },
+      { title: "Contact · Loopster" },
       {
         name: "description",
         content:
-          "Contactez l'équipe BeatStudio AI pour toute question, support technique ou partenariat.",
+          "Contactez l'équipe Loopster pour toute question, idée ou partenariat.",
       },
     ],
   }),
@@ -43,7 +43,7 @@ function ContactPage() {
         <SectionHeader
           eyebrow="Assistance & Partenariats"
           title="Contactez-nous"
-          description="Une question sur notre studio IA, un problème technique ou une demande de partenariat commercial ? Notre équipe vous répond sous 24h."
+          description="Une question, une idée ou une envie de partenariat ? L'équipe Loopster vous répond sous 24h."
         />
 
         <div className="mt-10 grid gap-10 md:grid-cols-12">
@@ -61,10 +61,10 @@ function ContactPage() {
                     Email Direct
                   </div>
                   <a
-                    href="mailto:hello@beatstudio.ai"
+                    href="mailto:hello@loopster.fun"
                     className="text-sm font-medium text-white hover:text-neon transition-colors"
                   >
-                    hello@beatstudio.ai
+                    hello@loopster.fun
                   </a>
                   <p className="mt-0.5 text-xs text-zinc-500">
                     Pour le support et les informations générales
@@ -86,7 +86,7 @@ function ContactPage() {
                     rel="noreferrer"
                     className="text-sm font-medium text-white hover:text-purple-300 transition-colors"
                   >
-                    discord.gg/beatstudio
+                    discord.gg/loopster
                   </a>
                   <p className="mt-0.5 text-xs text-zinc-500">
                     Échangez directement avec les créateurs et développeurs
@@ -136,7 +136,7 @@ function ContactPage() {
                     Message envoyé avec succès !
                   </h3>
                   <p className="mt-2 text-sm text-zinc-400 max-w-md mx-auto">
-                    Merci d'avoir contacté BeatStudio AI. Un membre de notre équipe reviendra vers
+                Merci d'avoir contacté Loopster. Un membre de notre équipe reviendra vers
                     vous à l'adresse <strong className="text-white">{form.email}</strong> dans les
                     plus brefs délais.
                   </p>
@@ -192,7 +192,7 @@ function ContactPage() {
                       onChange={(e) => setForm({ ...form, subject: e.target.value })}
                       className="w-full rounded-xl border border-white/10 bg-background px-3.5 py-2.5 text-sm text-white focus:border-neon focus:outline-none"
                     >
-                      <option value="support">Support technique / Bug</option>
+                      <option value="support">Besoin d'aide</option>
                       <option value="billing">Facturation & Abonnements</option>
                       <option value="copyright">Droits d'auteur & Licences</option>
                       <option value="partnership">Partenariat & Presse</option>

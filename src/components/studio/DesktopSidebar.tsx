@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { user } from "@/data/mock";
+import { useProfile } from "@/hooks/use-profile";
+import { FREE_DAILY_CREDITS, isPaidPlan } from "@/lib/plans";
+import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 import {
   Home,
   Library,
@@ -28,13 +30,17 @@ const nav: NavItem[] = [
 
 export function DesktopSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { data: profile } = useProfile();
+  const paid = isPaidPlan(profile);
+  const credits = paid ? profile?.credits ?? 0 : Math.min(profile?.credits ?? 0, FREE_DAILY_CREDITS);
+  const name = profile?.display_name ?? "Créateur";
+  const initials = profile?.initials ?? "??";
+  const color = profile?.color ?? "from-cyan-400 to-fuchsia-600";
+  const plan = paid ? "Loopster Pro" : "Loopster Free";
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/5 bg-background/80 px-4 py-5 backdrop-blur-xl md:flex">
       <Link to="/studio" className="mb-8 flex items-center gap-2 px-2">
-        <span className="grid size-8 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
-          <span className="size-3 rotate-45 rounded-[3px] bg-background" />
-        </span>
-        <span className="text-lg font-semibold tracking-tight">BeatStudio</span>
+        <LoopsterLogo className="h-8" imageClassName="h-8 w-auto" />
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -66,14 +72,14 @@ export function DesktopSidebar() {
         className="mt-4 flex items-center gap-3 rounded-2xl border border-white/5 bg-surface p-3 transition-colors hover:bg-surface-2"
       >
         <div
-          className={`grid size-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${user.color} text-xs font-semibold text-background`}
+          className={`grid size-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${color} text-xs font-semibold text-background`}
         >
-          {user.initials}
+          {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{user.name}</div>
+          <div className="truncate text-sm font-semibold">{name}</div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-neon">
-            {user.credits} CR · {user.plan}
+            {credits} CR · {plan}
           </div>
         </div>
       </Link>

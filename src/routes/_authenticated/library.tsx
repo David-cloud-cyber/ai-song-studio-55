@@ -27,7 +27,7 @@ type DbProject = {
 export const Route = createFileRoute("/_authenticated/library")({
   head: () => ({
     meta: [
-      { title: "Library · BeatStudio AI" },
+      { title: "Library · Loopster" },
       {
         name: "description",
         content: "Retrouvez toutes vos créations : chansons, clips, instrus, paroles, pochettes.",

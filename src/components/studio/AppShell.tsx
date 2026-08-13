@@ -40,13 +40,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <TopBar />
       </div>
 
-      <main className="mx-auto max-w-md pb-64 md:ml-64 md:max-w-none md:px-10 md:pb-40 md:pt-6">
-        <div className="md:mx-auto md:max-w-6xl">{children}</div>
+      <main className="mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:ml-64 md:max-w-none md:px-10 md:pb-40 md:pt-6">
+        <div className="min-w-0 md:mx-auto md:max-w-6xl">{children}</div>
       </main>
 
       {/* Floating bottom stack */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:left-64">
-        <div className="mx-auto max-w-md px-4 pb-4 md:max-w-3xl">
+        <div className="mx-auto max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:max-w-3xl md:pb-4">
           <div className="mb-2 px-1">
             <LivePlayerBar />
           </div>

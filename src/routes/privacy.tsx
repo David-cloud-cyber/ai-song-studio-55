@@ -6,11 +6,11 @@ import { Lock, Database, Eye, UserCheck, Shield } from "lucide-react";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Politique de Confidentialité · BeatStudio AI" },
+      { title: "Politique de Confidentialité · Loopster" },
       {
         name: "description",
         content:
-          "Engagement de protection des données personnelles et conformité RGPD de BeatStudio AI.",
+          "Engagement de protection des données personnelles et conformité RGPD de Loopster.",
       },
     ],
   }),
@@ -24,7 +24,7 @@ function PrivacyPage() {
         <SectionHeader
           eyebrow="Protection des Données"
           title="Politique de Confidentialité"
-          description="Dernière mise à jour : 28 Juillet 2026. Découvrez comment BeatStudio AI collecte, protège et utilise vos données personnelles conformément au RGPD."
+          description="Dernière mise à jour : 28 Juillet 2026. Découvrez comment Loopster collecte, protège et utilise vos données personnelles conformément au RGPD."
         />
 
         <div className="mt-10 space-y-8 rounded-2xl border border-white/10 bg-surface/50 p-6 md:p-10 text-zinc-300 text-sm leading-relaxed">
@@ -114,8 +114,8 @@ function PrivacyPage() {
             <p className="pt-2">
               Pour exercer ces droits, contactez notre Délégué à la Protection des Données (DPO) à
               l'adresse :{" "}
-              <a href="mailto:dpo@beatstudio.ai" className="text-neon hover:underline">
-                dpo@beatstudio.ai
+              <a href="mailto:dpo@loopster.fun" className="text-neon hover:underline">
+                dpo@loopster.fun
               </a>
               .
             </p>

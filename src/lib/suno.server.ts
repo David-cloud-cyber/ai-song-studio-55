@@ -4,7 +4,7 @@
  */
 const BASE = "https://api.sunoapi.org/api/v1";
 
-export type SunoModel = "V3_5" | "V4" | "V4_5" | "V4_5PLUS" | "V5";
+export type SunoModel = "V3_5" | "V4" | "V4_5" | "V4_5PLUS" | "V4_5ALL" | "V5" | "V5_5";
 
 export type SunoClip = {
   id: string;
@@ -116,6 +116,78 @@ export function createStemSeparation(payload: {
     method: "POST",
     body: payload,
   });
+}
+
+export function uploadAndCover(payload: {
+  uploadUrl: string;
+  prompt?: string;
+  style?: string;
+  title?: string;
+  customMode: boolean;
+  instrumental: boolean;
+  model: SunoModel;
+  negativeTags?: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/upload-cover", { method: "POST", body: payload });
+}
+
+export function uploadAndExtend(payload: {
+  uploadUrl: string;
+  defaultParamFlag: boolean;
+  model: SunoModel;
+  instrumental: boolean;
+  prompt?: string;
+  style?: string;
+  title?: string;
+  continueAt?: number;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/upload-extend", { method: "POST", body: payload });
+}
+
+export function addVocals(payload: {
+  prompt: string;
+  title: string;
+  uploadUrl: string;
+  style?: string;
+  model: SunoModel;
+  negativeTags?: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/add-vocals", { method: "POST", body: payload });
+}
+
+export function addInstrumental(payload: {
+  uploadUrl: string;
+  title: string;
+  tags?: string;
+  model: SunoModel;
+  negativeTags?: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/add-instrumental", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function generateLyrics(payload: { prompt: string; callBackUrl: string }) {
+  return sunoRequest<{ taskId: string }>("/lyrics", { method: "POST", body: payload });
+}
+
+export function convertToWav(payload: { taskId: string; audioId: string; callBackUrl: string }) {
+  return sunoRequest<{ taskId: string }>("/wav/generate", { method: "POST", body: payload });
+}
+
+export function createMusicVideo(payload: {
+  taskId: string;
+  audioId: string;
+  author: string;
+  domainName?: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/mp4/generate", { method: "POST", body: payload });
 }
 
 export function getStemInfo(taskId: string) {

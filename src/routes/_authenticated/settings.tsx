@@ -22,7 +22,7 @@ import { soon } from "@/lib/toast";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Compte · BeatStudio AI" },
+      { title: "Compte · Loopster" },
       { name: "description", content: "Préférences, notifications et paramètres du studio." },
     ],
   }),
@@ -45,8 +45,10 @@ function SettingsPage() {
       queryClient.clear();
       await supabase.auth.signOut();
       navigate({ to: "/auth", replace: true });
-    } catch (err) {
-      toast.error("Déconnexion", { description: err instanceof Error ? err.message : "Erreur" });
+    } catch {
+      toast.error("Déconnexion interrompue", {
+        description: "On garde ta session ouverte pour le moment.",
+      });
       setSigningOut(false);
     }
   };
@@ -69,7 +71,7 @@ function SettingsPage() {
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{displayName}</div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-              {profile?.handle ?? "@studio"} · Studio Free
+              {profile?.handle ?? "@studio"} · {profile?.plan === "pro" ? "Studio Pro" : "Studio Free"}
             </div>
           </div>
           <button
@@ -126,7 +128,7 @@ function SettingsPage() {
           <LogOut className="size-4" /> {signingOut ? "Déconnexion…" : "Se déconnecter"}
         </button>
         <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-widest text-zinc-600">
-          BeatStudio AI · v0.1 · phase 1
+          Loopster · v0.1 · phase 1
         </p>
       </section>
     </PageTransition>

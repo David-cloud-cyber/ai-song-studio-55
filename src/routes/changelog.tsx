@@ -6,11 +6,11 @@ import { Sparkles, Music, Zap, Cpu, Shield, ArrowUpRight } from "lucide-react";
 export const Route = createFileRoute("/changelog")({
   head: () => ({
     meta: [
-      { title: "Changelog · BeatStudio AI" },
+      { title: "Changelog · Loopster" },
       {
         name: "description",
         content:
-          "Historique des mises à jour, nouvelles fonctionnalités et améliorations de BeatStudio AI.",
+          "Historique des mises à jour, nouvelles fonctionnalités et améliorations de Loopster.",
       },
     ],
   }),
@@ -92,7 +92,7 @@ const updates = [
     version: "v2.0.0",
     date: "12 Juin 2026",
     badge: "Lancement",
-    title: "Lancement officiel de BeatStudio AI v2",
+    title: "Lancement officiel de Loopster v2",
     description:
       "Refonte complète de l'interface utilisateur, nouveau studio mobile-first et génération audio instantanée sous Gemini 1.5 Pro audio pipeline.",
     changes: [
@@ -117,7 +117,7 @@ function ChangelogPage() {
         <SectionHeader
           eyebrow="Mises à jour & Nouveautés"
           title="Changelog"
-          description="Découvrez les dernières fonctionnalités, corrections et évolutions de la plateforme BeatStudio AI."
+          description="Découvrez les dernières fonctionnalités, corrections et évolutions de la plateforme Loopster."
         />
 
         <div className="mt-10 space-y-12">

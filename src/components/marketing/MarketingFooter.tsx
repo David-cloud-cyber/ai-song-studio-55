@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 
 const cols = [
   {
@@ -41,7 +42,7 @@ export function MarketingFooter() {
               <span className="grid size-8 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
                 <span className="size-3 rotate-45 rounded-[3px] bg-background" />
               </span>
-              <span className="text-lg font-semibold tracking-tight">BeatStudio</span>
+              <LoopsterLogo className="h-8" imageClassName="h-8 w-auto" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-zinc-500">
               Le studio de création musicale IA pour créateurs mobile-first. Prompt to song, en
@@ -83,7 +84,7 @@ export function MarketingFooter() {
         </div>
 
         <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/5 pt-6 md:flex-row md:items-center">
-          <span className="text-xs text-zinc-500">© 2026 BeatStudio AI. Tous droits réservés.</span>
+          <span className="text-xs text-zinc-500">© 2026 Loopster. Tous droits réservés.</span>
           <div className="flex items-center gap-4 text-xs text-zinc-500">
             <a href="#" className="hover:text-neon">
               Twitter

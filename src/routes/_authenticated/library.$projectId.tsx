@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,18 @@ import { StatusBadge } from "@/components/studio/StatusBadge";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { useProjectSync } from "@/hooks/use-project-sync";
-import { extendTrack, separateStems, COSTS } from "@/lib/suno.functions";
+import { useProfile } from "@/hooks/use-profile";
+import { isPaidPlan } from "@/lib/plans";
+import {
+  extendTrack,
+  separateStems,
+  addVocalsToProject,
+  addInstrumentalToProject,
+  generateProjectLyrics,
+  convertProjectToWav,
+  createProjectVideo,
+  COSTS,
+} from "@/lib/suno.functions";
 import {
   ArrowLeft,
   Share2,
@@ -20,9 +31,12 @@ import {
   Scissors,
   FastForward,
   AlertTriangle,
+  Mic2,
+  Music,
+  FileAudio,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { soon } from "@/lib/toast";
 import { toast } from "sonner";
 
 type Stems = {
@@ -55,14 +69,16 @@ type Project = {
   model: string | null;
   stems: Stems | null;
   error_message: string | null;
+  wav_url: string | null;
+  video_url: string | null;
 };
 
 export const Route = createFileRoute("/_authenticated/library/$projectId")({
   head: () => ({
     meta: [
-      { title: "Projet · BeatStudio AI" },
+      { title: "Projet · Loopster" },
       { name: "description", content: "Écoutez, prolongez et séparez les pistes de votre morceau." },
-      { property: "og:title", content: "Projet · BeatStudio AI" },
+      { property: "og:title", content: "Projet · Loopster" },
       {
         property: "og:description",
         content: "Lecture audio, extension et séparation voix/instrumental.",
@@ -76,7 +92,7 @@ export const Route = createFileRoute("/_authenticated/library/$projectId")({
   ),
   errorComponent: () => (
     <div className="p-10 text-center text-sm text-muted-foreground">
-      Impossible de charger ce projet.
+      Oups, ce morceau joue à cache-cache. Réessaie dans un instant.
     </div>
   ),
   component: ProjectDetail,
@@ -89,15 +105,24 @@ function formatDuration(sec: number | null) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const tabs = ["Audio", "Stems", "Paroles", "Pochette"] as const;
+const tabs = ["Audio", "Stems", "Paroles", "Pochette", "Exports"] as const;
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Audio");
-  const [busy, setBusy] = useState<null | "extend" | "stems">(null);
+  const [busy, setBusy] = useState<
+    null | "extend" | "stems" | "vocals" | "instrumental" | "lyrics" | "wav" | "video"
+  >(null);
   const queryClient = useQueryClient();
+  const { data: profile } = useProfile();
+  const canDownload = isPaidPlan(profile);
   const runExtend = useServerFn(extendTrack);
   const runStems = useServerFn(separateStems);
+  const runVocals = useServerFn(addVocalsToProject);
+  const runInstrumental = useServerFn(addInstrumentalToProject);
+  const runLyrics = useServerFn(generateProjectLyrics);
+  const runWav = useServerFn(convertProjectToWav);
+  const runVideo = useServerFn(createProjectVideo);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -114,6 +139,31 @@ function ProjectDetail() {
       return data as unknown as Project;
     },
   });
+
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["generation-jobs", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generation_jobs")
+        .select("status,kind,error_message")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Array<{ status: string; kind: string; error_message: string | null }>;
+    },
+    refetchInterval: (q) =>
+      (q.state.data as Array<{ status: string }> | undefined)?.some(
+        (job) => job.status === "processing",
+      )
+        ? 5000
+        : false,
+  });
+
+  useEffect(() => {
+    if (jobs.some((job) => job.status !== "processing")) {
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+    }
+  }, [jobs, projectId, queryClient]);
 
   const stems = project?.stems ?? null;
   const needsSync =
@@ -137,11 +187,11 @@ function ProjectDetail() {
       const res = await runExtend({ data: { projectId: project.id } });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      toast.success("Extension lancée", { description: `${COSTS.extend} crédits débités.` });
+      toast.success("Le morceau continue !", { description: `${COSTS.extend} crédits utilisés.` });
       window.location.href = `/library/${res.projectId}`;
-    } catch (err) {
-      toast.error("Extension impossible", {
-        description: err instanceof Error ? err.message : "Réessayez",
+    } catch {
+      toast.error("Le morceau a besoin d'une petite pause", {
+        description: "On retente dans un instant ?",
       });
     } finally {
       setBusy(null);
@@ -155,13 +205,88 @@ function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ["project", project.id] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       setTab("Stems");
-      toast.success("Séparation lancée", { description: `${COSTS.stems} crédits débités.` });
-    } catch (err) {
-      toast.error("Séparation impossible", {
-        description: err instanceof Error ? err.message : "Réessayez",
+      toast.success("Les pistes se séparent !", { description: `${COSTS.stems} crédits utilisés.` });
+    } catch {
+      toast.error("Les pistes font une petite pause", {
+        description: "On retente dans un instant ?",
       });
     } finally {
       setBusy(null);
+    }
+  };
+
+  const runDerived = async (
+    kind: "vocals" | "instrumental" | "lyrics" | "wav" | "video",
+    action: () => Promise<unknown>,
+    message: string,
+  ) => {
+    setBusy(kind);
+    try {
+      const result = await action();
+      queryClient.invalidateQueries({ queryKey: ["project", project.id] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success(message);
+      if (kind === "vocals" || kind === "instrumental") {
+        const child = result as { projectId?: string };
+        if (child.projectId) window.location.href = `/library/${child.projectId}`;
+      }
+    } catch {
+      toast.error("Oups, petit contretemps", {
+        description: "On retente dans un instant ?",
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doVocals = () =>
+    runDerived(
+      "vocals",
+      () => runVocals({ data: { projectId: project.id, prompt: project.prompt ?? "Voix expressive et mélodique" } }),
+      "Ajout des voix lancé",
+    );
+
+  const doInstrumental = () =>
+    runDerived("instrumental", () => runInstrumental({ data: { projectId: project.id } }), "Ajout instrumental lancé");
+
+  const doLyrics = () =>
+    runDerived(
+      "lyrics",
+      () => runLyrics({ data: { projectId: project.id, prompt: project.prompt ?? `Paroles pour ${project.title}` } }),
+      "Génération des paroles lancée",
+    );
+
+  const doWav = () =>
+    runDerived("wav", () => runWav({ data: { projectId: project.id } }), "Conversion WAV lancée");
+
+  const doVideo = () =>
+    runDerived("video", () => runVideo({ data: { projectId: project.id } }), "Création vidéo lancée");
+
+  const toggleFavorite = async () => {
+    const { error } = await supabase
+      .from("projects")
+      .update({ is_favorite: !project.is_favorite })
+      .eq("id", project.id);
+    if (error) {
+      toast.error("Le favori n'a pas pu être enregistré", {
+        description: "On retente dans un instant ?",
+      });
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
+  };
+
+  const shareProject = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: project.title, text: "Écoutez ce morceau créé avec Loopster", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Lien copié");
+      }
+    } catch {
+      // L'utilisateur peut annuler le partage natif sans afficher d'erreur.
     }
   };
 
@@ -209,7 +334,7 @@ function ProjectDetail() {
               </p>
             </div>
             <button
-              onClick={() => soon()}
+              onClick={() => void toggleFavorite()}
               className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface"
               aria-label="Favori"
             >
@@ -238,7 +363,7 @@ function ProjectDetail() {
           {project.error_message && (
             <div className="mt-4 flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span>{project.error_message}</span>
+              <span>Oups, ce morceau a rencontré un petit contretemps. Relance la création pour réessayer.</span>
             </div>
           )}
 
@@ -247,6 +372,7 @@ function ProjectDetail() {
               src={project.audio_url}
               seed={project.id}
               downloadName={`${project.title}.mp3`}
+              canDownload={canDownload}
               className="mt-4"
             />
           )}
@@ -296,7 +422,26 @@ function ProjectDetail() {
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
-              onClick={() => soon("Partage bientôt disponible")}
+              onClick={doVocals}
+              disabled={!project.audio_url || busy !== null}
+              className="flex items-center justify-center gap-2 rounded-xl border border-neon/20 bg-neon/5 py-2.5 text-xs font-semibold text-neon disabled:opacity-40"
+            >
+              {busy === "vocals" ? <Loader2 className="size-3.5 animate-spin" /> : <Mic2 className="size-3.5" />}
+              Ajouter voix · {COSTS.vocals} CR
+            </button>
+            <button
+              onClick={doInstrumental}
+              disabled={!project.audio_url || busy !== null}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
+            >
+              {busy === "instrumental" ? <Loader2 className="size-3.5 animate-spin" /> : <Music className="size-3.5" />}
+              Ajouter instru · {COSTS.addInstrumental} CR
+            </button>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => void shareProject()}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
             >
               <Share2 className="size-3.5" /> Partager
@@ -307,6 +452,30 @@ function ProjectDetail() {
             >
               <Wand2 className="size-3.5" /> Remix
             </Link>
+          </div>
+
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <button
+              onClick={doLyrics}
+              disabled={busy !== null}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
+            >
+              {busy === "lyrics" ? <Loader2 className="size-3 animate-spin" /> : <Wand2 className="size-3" />} Paroles
+            </button>
+            <button
+              onClick={doWav}
+              disabled={!project.suno_audio_id || busy !== null}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
+            >
+              {busy === "wav" ? <Loader2 className="size-3 animate-spin" /> : <FileAudio className="size-3" />} WAV
+            </button>
+            <button
+              onClick={doVideo}
+              disabled={!project.suno_audio_id || busy !== null}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
+            >
+              {busy === "video" ? <Loader2 className="size-3 animate-spin" /> : <Video className="size-3" />} Vidéo
+            </button>
           </div>
         </div>
       </section>
@@ -336,6 +505,7 @@ function ProjectDetail() {
                   seed={project.id}
                   label="Master"
                   downloadName={`${project.title}.mp3`}
+                  canDownload={canDownload}
                 />
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
@@ -356,7 +526,7 @@ function ProjectDetail() {
               )}
               {stems?.status === "failed" && (
                 <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-                  {stems.error ?? "La séparation a échoué."}
+                  Les pistes n'ont pas fini leur petite danse. Réessaie dans un instant.
                 </div>
               )}
               {stems?.vocalUrl && (
@@ -365,6 +535,7 @@ function ProjectDetail() {
                   seed={`${project.id}v`}
                   label="Voix"
                   downloadName={`${project.title} - voix.mp3`}
+                  canDownload={canDownload}
                 />
               )}
               {stems?.instrumentalUrl && (
@@ -373,6 +544,7 @@ function ProjectDetail() {
                   seed={`${project.id}i`}
                   label="Instrumental"
                   downloadName={`${project.title} - instrumental.mp3`}
+                  canDownload={canDownload}
                 />
               )}
               {!stems && (
@@ -401,6 +573,55 @@ function ProjectDetail() {
             ) : (
               <CoverArt gradient={gradient} title={project.title} className="aspect-square" />
             ))}
+
+          {tab === "Exports" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {canDownload && project.audio_url && (
+                <a
+                  href={project.audio_url}
+                  download={`${project.title}.mp3`}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
+                >
+                  <span>Master MP3</span>
+                  <FileAudio className="size-4 text-neon" />
+                </a>
+              )}
+              {canDownload && project.wav_url && (
+                <a
+                  href={project.wav_url}
+                  download={`${project.title}.wav`}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
+                >
+                  <span>Master WAV</span>
+                  <FileAudio className="size-4 text-neon" />
+                </a>
+              )}
+              {canDownload && project.video_url && (
+                <a
+                  href={project.video_url}
+                  download={`${project.title}.mp4`}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
+                >
+                  <span>Clip MP4</span>
+                  <Video className="size-4 text-neon" />
+                </a>
+              )}
+              {!canDownload && (
+                <a
+                  href="/credits"
+                  className="flex items-center justify-between rounded-2xl border border-neon/20 bg-neon/5 p-4 text-sm font-semibold text-neon hover:bg-neon/10 sm:col-span-2"
+                >
+                  <span>Passe à une formule payante pour télécharger tes créations ✨</span>
+                  <FileAudio className="size-4 shrink-0" />
+                </a>
+              )}
+              {canDownload && !project.wav_url && !project.video_url && (
+                <div className="rounded-2xl border border-dashed border-white/10 p-6 text-sm text-zinc-400 sm:col-span-2">
+                  Les exports WAV et vidéo apparaîtront ici après leur traitement.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </PageTransition>

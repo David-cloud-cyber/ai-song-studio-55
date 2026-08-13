@@ -6,11 +6,11 @@ import { ShieldCheck, FileText, Lock, Cookie, Scale, ArrowRight } from "lucide-r
 export const Route = createFileRoute("/legal")({
   head: () => ({
     meta: [
-      { title: "Informations Légales · BeatStudio AI" },
+      { title: "Informations Légales · Loopster" },
       {
         name: "description",
         content:
-          "Consultez l'ensemble des documents légaux, conditions d'utilisation, politiques de confidentialité et cookies de BeatStudio AI.",
+          "Consultez l'ensemble des documents légaux, conditions d'utilisation, politiques de confidentialité et cookies de Loopster.",
       },
     ],
   }),
@@ -22,7 +22,7 @@ const legalDocs = [
     title: "Mentions Légales",
     to: "/mentions-legales",
     icon: Scale,
-    desc: "Informations sur l'éditeur de la plateforme BeatStudio AI, l'hébergeur et les droits de propriété intellectuelle.",
+    desc: "Informations sur l'éditeur de la plateforme Loopster, l'hébergeur et les droits de propriété intellectuelle.",
   },
   {
     title: "Conditions Générales d'Utilisation (CGU)",
@@ -51,7 +51,7 @@ function LegalOverviewPage() {
         <SectionHeader
           eyebrow="Cadre Juridique"
           title="Centre d'informations Légales"
-          description="Chez BeatStudio AI, la transparence et la protection de vos droits de création sont nos priorités absolues."
+          description="Chez Loopster, la transparence et la protection de vos droits de création sont nos priorités absolues."
         />
 
         <div className="mt-8 rounded-2xl border border-neon/30 bg-neon/5 p-5 md:p-6 flex items-start gap-4">
@@ -61,7 +61,7 @@ function LegalOverviewPage() {
           <div>
             <h3 className="font-semibold text-white">Vos créations vous appartiennent</h3>
             <p className="mt-1 text-sm text-zinc-300">
-              Toutes les pistes musicales, stems et paroles générés avec un compte payant BeatStudio
+              Toutes les pistes musicales, stems et paroles générés avec un compte payant Loopster
               AI sont sous licence commerciale illimitée. Vous conservez 100% de vos droits de
               distribution et de monétisation sur Spotify, Apple Music, YouTube et TikTok.
             </p>

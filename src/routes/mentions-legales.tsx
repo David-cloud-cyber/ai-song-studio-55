@@ -6,10 +6,10 @@ import { Building2, Server, Globe, Mail } from "lucide-react";
 export const Route = createFileRoute("/mentions-legales")({
   head: () => ({
     meta: [
-      { title: "Mentions Légales · BeatStudio AI" },
+      { title: "Mentions Légales · Loopster" },
       {
         name: "description",
-        content: "Mentions légales, éditeur et hébergeur de la plateforme BeatStudio AI.",
+        content: "Mentions légales, éditeur et hébergeur de la plateforme Loopster.",
       },
     ],
   }),
@@ -36,7 +36,7 @@ function MentionsLegalesPage() {
             <div className="grid gap-2 text-zinc-300 sm:grid-cols-2">
               <div>
                 <span className="font-mono text-xs text-zinc-500 uppercase">Raison sociale :</span>
-                <p className="font-medium text-white">BeatStudio SAS</p>
+                <p className="font-medium text-white">Loopster</p>
               </div>
               <div>
                 <span className="font-mono text-xs text-zinc-500 uppercase">Capital social :</span>
@@ -72,7 +72,7 @@ function MentionsLegalesPage() {
               2. Hébergement du Service
             </h2>
             <p>
-              La plateforme BeatStudio AI est hébergée sur des infrastructures cloud hautement
+              La plateforme Loopster est hébergée sur des infrastructures cloud hautement
               sécurisées :
             </p>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1">
@@ -94,8 +94,8 @@ function MentionsLegalesPage() {
             </h2>
             <p>
               L'ensemble du code source, de la charte graphique, de l'interface utilisateur, des
-              logos et marques déposées associés à « BeatStudio AI » sont la propriété exclusive de
-              BeatStudio SAS. Toute reproduction totale ou partielle non autorisée constitue une
+              logos et marques déposées associés à « Loopster » sont la propriété exclusive de
+              Loopster. Toute reproduction totale ou partielle non autorisée constitue une
               contrefaçon sanctionnée par le Code de la propriété intellectuelle.
             </p>
           </section>
@@ -112,8 +112,8 @@ function MentionsLegalesPage() {
             </p>
             <p className="text-white">
               Email :{" "}
-              <a href="mailto:legal@beatstudio.ai" className="text-neon hover:underline">
-                legal@beatstudio.ai
+              <a href="mailto:legal@loopster.fun" className="text-neon hover:underline">
+                legal@loopster.fun
               </a>
             </p>
           </section>

@@ -30,7 +30,7 @@ export function HeroPromptInput() {
   const submit = () => {
     try {
       window.sessionStorage.setItem(
-        "beatstudio.hero-prompt",
+        "loopster.hero-prompt",
         JSON.stringify({ prompt: prompt.trim(), vibe }),
       );
     } catch {
@@ -42,7 +42,7 @@ export function HeroPromptInput() {
   const showSuggestions = focused || prompt.length === 0;
 
   return (
-    <div className="relative mx-auto w-full max-w-2xl">
+    <div className="relative mx-auto w-full min-w-0 max-w-2xl">
       <div
         aria-hidden
         className="pointer-events-none absolute -inset-10 -z-10 rounded-[48px] bg-[radial-gradient(55%_55%_at_50%_50%,rgba(34,211,238,0.16),transparent_70%)] blur-2xl"
@@ -56,7 +56,7 @@ export function HeroPromptInput() {
             : "border-white/[0.07] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]",
         )}
       >
-        <div className="flex items-end gap-2 rounded-2xl px-3 py-2.5">
+        <div className="flex min-w-0 items-end gap-2 rounded-2xl px-3 py-2.5">
           <textarea
             ref={taRef}
             value={prompt}
@@ -71,7 +71,7 @@ export function HeroPromptInput() {
             }}
             rows={1}
             placeholder="Décrivez la piste que vous voulez créer…"
-            className="min-h-[44px] flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-relaxed text-foreground placeholder:text-zinc-500 transition-colors focus:outline-none"
+            className="min-h-[44px] flex-1 resize-none overflow-y-hidden bg-transparent py-2.5 text-[15px] leading-relaxed text-foreground placeholder:text-zinc-500 transition-colors focus:outline-none"
             style={{ transition: "height 240ms cubic-bezier(0.32,0.72,0,1)" }}
           />
           <button
@@ -132,7 +132,7 @@ export function HeroPromptInput() {
       </div>
 
       <p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-        480 crédits offerts · Aucune carte requise
+        80 crédits offerts chaque jour · Aucune carte requise
       </p>
     </div>
   );

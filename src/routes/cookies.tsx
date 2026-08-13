@@ -6,10 +6,10 @@ import { Cookie, Check, Sliders, Info } from "lucide-react";
 export const Route = createFileRoute("/cookies")({
   head: () => ({
     meta: [
-      { title: "Politique des Cookies · BeatStudio AI" },
+      { title: "Politique des Cookies · Loopster" },
       {
         name: "description",
-        content: "Information et gestion des cookies et traceurs sur la plateforme BeatStudio AI.",
+        content: "Information et gestion des cookies et traceurs sur la plateforme Loopster.",
       },
     ],
   }),
@@ -34,7 +34,7 @@ function CookiesPage() {
             </h2>
             <p>
               Un cookie est un petit fichier texte déposé sur votre ordinateur, tablette ou
-              smartphone lors de votre visite sur BeatStudio AI. Il nous permet d'assurer la
+              smartphone lors de votre visite sur Loopster. Il nous permet d'assurer la
               stabilité du studio audio, de mémoriser vos préférences de lecture et de sécuriser
               votre session.
             </p>
@@ -70,7 +70,7 @@ function CookiesPage() {
                 </div>
                 <p className="text-xs text-zinc-400">
                   Mesure anonyme de la fréquentation des pages et des temps d'apprentissage des
-                  modèles afin d'améliorer l'ergonomie globale de BeatStudio.
+              modèles afin d'améliorer l'ergonomie globale de Loopster.
                 </p>
               </div>
             </div>

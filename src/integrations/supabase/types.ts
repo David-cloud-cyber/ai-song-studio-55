@@ -79,10 +79,15 @@ export type Database = {
           credits_spent: number
           error_message: string | null
           id: string
+          idempotency_key: string | null
           kind: string
           payload: Json | null
+          provider_cost_usd: number
+          provider_credits_spent: number
           project_id: string | null
           result: Json | null
+          credits_refunded: number
+          refunded_at: string | null
           status: string
           suno_task_id: string | null
           updated_at: string
@@ -93,10 +98,15 @@ export type Database = {
           credits_spent?: number
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           kind?: string
           payload?: Json | null
+          provider_cost_usd?: number
+          provider_credits_spent?: number
           project_id?: string | null
           result?: Json | null
+          credits_refunded?: number
+          refunded_at?: string | null
           status?: string
           suno_task_id?: string | null
           updated_at?: string
@@ -107,10 +117,15 @@ export type Database = {
           credits_spent?: number
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           kind?: string
           payload?: Json | null
+          provider_cost_usd?: number
+          provider_credits_spent?: number
           project_id?: string | null
           result?: Json | null
+          credits_refunded?: number
+          refunded_at?: string | null
           status?: string
           suno_task_id?: string | null
           updated_at?: string
@@ -318,6 +333,10 @@ export type Database = {
     Functions: {
       deduct_credits: {
         Args: { _amount: number; _project_id?: string; _reason: string }
+        Returns: number
+      }
+      refund_credits: {
+        Args: { _amount: number; _project_id?: string; _reason: string; _user_id: string }
         Returns: number
       }
       has_role: {

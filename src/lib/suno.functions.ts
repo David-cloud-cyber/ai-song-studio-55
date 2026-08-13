@@ -5,18 +5,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { activeSubscriptionStatuses, paidPlans } from "@/lib/plans";
+import { LOOPSTER_COSTS, PROVIDER_COST_BY_JOB_KIND, sunoCostUsd } from "@/lib/generation-costs";
 
-export const COSTS = {
-  song: 40,
-  instrumental: 30,
-  extend: 30,
-  stems: 20,
-  lyrics: 5,
-  vocals: 35,
-  addInstrumental: 30,
-  wav: 8,
-  video: 120,
-} as const;
+export const COSTS = LOOPSTER_COSTS;
 
 const MODELS = ["V3_5", "V4", "V4_5", "V4_5PLUS", "V4_5ALL", "V5", "V5_5"] as const;
 
@@ -34,6 +25,7 @@ async function spend(
   amount: number,
   reason: string,
   projectId: string,
+  providerKind: string,
 ) {
   const { error } = await supabase.rpc("deduct_credits", {
     _amount: amount,
@@ -41,6 +33,8 @@ async function spend(
     _project_id: projectId,
   });
   if (error) throw new Error(error.message ?? "Crédits insuffisants");
+  const providerCredits = PROVIDER_COST_BY_JOB_KIND[providerKind] ?? 0;
+  return { providerCredits, providerCostUsd: sunoCostUsd(providerCredits) };
 }
 
 /** Lance une génération de chanson ou d'instrumentale. */
@@ -105,22 +99,16 @@ export const generateTrack = createServerFn({ method: "POST" })
         negativeTags: z.string().trim().max(200).optional(),
         durationSeconds: z.number().int().min(30).max(480).optional(),
         coverGradient: z.string().max(200).optional(),
+        requestId: z.string().uuid().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const cost = data.instrumental ? COSTS.instrumental : COSTS.song;
+    const idempotencyKey = data.requestId ?? crypto.randomUUID();
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", userId)
-      .maybeSingle();
-    if (profileError) throw profileError;
-    if (!profile || profile.credits < cost) {
-      throw new Error(`Crédits insuffisants : ${cost} crédits requis.`);
-    }
+    await assertCredits(supabase, userId, cost);
 
     const style = data.style || [data.genre, data.mood, data.voice].filter(Boolean).join(", ");
 
@@ -146,6 +134,36 @@ export const generateTrack = createServerFn({ method: "POST" })
       .single();
     if (insertError) throw insertError;
 
+    const providerKind = data.instrumental ? "instrumental" : "song";
+    const providerCredits = PROVIDER_COST_BY_JOB_KIND[providerKind] ?? 0;
+    const { data: claimedJob, error: claimError } = await supabase
+      .from("generation_jobs")
+      .insert({
+        user_id: userId,
+        project_id: project.id,
+        kind: providerKind,
+        status: "pending",
+        idempotency_key: idempotencyKey,
+        provider_credits_spent: providerCredits,
+        provider_cost_usd: sunoCostUsd(providerCredits),
+        payload: { prompt: data.prompt, style, model: data.model },
+      })
+      .select("id")
+      .single();
+    if (claimError || !claimedJob) {
+      await supabase.from("projects").delete().eq("id", project.id);
+      if (claimError?.code === "23505") {
+        const { data: retryJob } = await supabase
+          .from("generation_jobs")
+          .select("project_id,suno_task_id,credits_spent")
+          .eq("user_id", userId)
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+        if (retryJob?.project_id) return { projectId: retryJob.project_id, taskId: retryJob.suno_task_id ?? "", creditsSpent: retryJob.credits_spent };
+      }
+      throw claimError ?? new Error("Création impossible");
+    }
+
     try {
       const { createSong } = await import("./suno.server");
       const { taskId } = await createSong({
@@ -159,17 +177,15 @@ export const generateTrack = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("music"),
       });
 
+      const accounting = await spend(supabase, cost, `Génération · ${data.title}`, project.id, providerKind);
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", project.id);
-      await spend(supabase, cost, `Génération · ${data.title}`, project.id);
-      await supabase.from("generation_jobs").insert({
-        user_id: userId,
-        project_id: project.id,
-        kind: data.instrumental ? "instrumental" : "song",
+      await supabase.from("generation_jobs").update({
         status: "processing",
         suno_task_id: taskId,
         credits_spent: cost,
-        payload: { prompt: data.prompt, style, model: data.model },
-      });
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      }).eq("id", claimedJob.id);
 
       return { projectId: project.id, taskId, creditsSpent: cost };
     } catch (error) {
@@ -248,7 +264,7 @@ export const extendTrack = createServerFn({ method: "POST" })
       });
 
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await spend(supabase, COSTS.extend, `Extension · ${parent.title}`, child.id);
+      const accounting = await spend(supabase, COSTS.extend, `Extension · ${parent.title}`, child.id, "extend");
       await supabase.from("generation_jobs").insert({
         user_id: userId,
         project_id: child.id,
@@ -256,6 +272,8 @@ export const extendTrack = createServerFn({ method: "POST" })
         status: "processing",
         suno_task_id: taskId,
         credits_spent: COSTS.extend,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
         payload: { parentId: parent.id, continueAt: data.continueAt ?? null },
       });
 
@@ -285,14 +303,7 @@ export const separateStems = createServerFn({ method: "POST" })
       throw new Error("Ce morceau doit d'abord être généré pour extraire les pistes.");
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!profile || profile.credits < COSTS.stems) {
-      throw new Error(`Crédits insuffisants : ${COSTS.stems} crédits requis.`);
-    }
+    await assertCredits(supabase, userId, COSTS.stems);
 
     const { createStemSeparation } = await import("./suno.server");
     const { taskId } = await createStemSeparation({
@@ -306,7 +317,7 @@ export const separateStems = createServerFn({ method: "POST" })
       .from("projects")
       .update({ stems: { taskId, status: "processing" } })
       .eq("id", project.id);
-    await spend(supabase, COSTS.stems, `Séparation pistes · ${project.title}`, project.id);
+    const accounting = await spend(supabase, COSTS.stems, `Séparation pistes · ${project.title}`, project.id, "stems");
     await supabase.from("generation_jobs").insert({
       user_id: userId,
       project_id: project.id,
@@ -314,6 +325,8 @@ export const separateStems = createServerFn({ method: "POST" })
       status: "processing",
       suno_task_id: taskId,
       credits_spent: COSTS.stems,
+      provider_credits_spent: accounting.providerCredits,
+      provider_cost_usd: accounting.providerCostUsd,
     });
 
     return { taskId };
@@ -369,7 +382,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("music"),
       });
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await spend(supabase, COSTS.vocals, `Voix IA · ${parent.title}`, child.id);
+      const accounting = await spend(supabase, COSTS.vocals, `Voix IA · ${parent.title}`, child.id, "vocals");
       await supabase.from("generation_jobs").insert({
         user_id: userId,
         project_id: child.id,
@@ -377,6 +390,8 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
         status: "processing",
         suno_task_id: taskId,
         credits_spent: COSTS.vocals,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
         payload: { parentId: parent.id, prompt: data.prompt },
       });
       return { projectId: child.id, taskId };
@@ -443,7 +458,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("music"),
       });
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", project.id);
-      await spend(supabase, cost, `Remix audio · ${data.title}`, project.id);
+      const accounting = await spend(supabase, cost, `Remix audio · ${data.title}`, project.id, "upload-cover");
       await supabase.from("generation_jobs").insert({
         user_id: userId,
         project_id: project.id,
@@ -451,6 +466,8 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         status: "processing",
         suno_task_id: taskId,
         credits_spent: cost,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
         payload: { style, model: data.model },
       });
       return { projectId: project.id, taskId, creditsSpent: cost };
@@ -507,7 +524,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("music"),
       });
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await spend(supabase, COSTS.addInstrumental, `Instrumental · ${parent.title}`, child.id);
+      const accounting = await spend(supabase, COSTS.addInstrumental, `Instrumental · ${parent.title}`, child.id, "add-instrumental");
       await supabase.from("generation_jobs").insert({
         user_id: userId,
         project_id: child.id,
@@ -515,6 +532,8 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
         status: "processing",
         suno_task_id: taskId,
         credits_spent: COSTS.addInstrumental,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
         payload: { parentId: parent.id },
       });
       return { projectId: child.id, taskId };
@@ -538,7 +557,7 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
     await assertCredits(supabase, userId, COSTS.lyrics);
     const { generateLyrics } = await import("./suno.server");
     const { taskId } = await generateLyrics({ prompt: data.prompt, callBackUrl: callbackUrl("lyrics") });
-    await spend(supabase, COSTS.lyrics, `Paroles · ${project.title}`, project.id);
+    const accounting = await spend(supabase, COSTS.lyrics, `Paroles · ${project.title}`, project.id, "lyrics");
     await supabase.from("generation_jobs").insert({
       user_id: userId,
       project_id: project.id,
@@ -546,6 +565,8 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
       status: "processing",
       suno_task_id: taskId,
       credits_spent: COSTS.lyrics,
+      provider_credits_spent: accounting.providerCredits,
+      provider_cost_usd: accounting.providerCostUsd,
       payload: { prompt: data.prompt },
     });
     return { taskId };
@@ -572,7 +593,7 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
       audioId: project.suno_audio_id,
       callBackUrl: callbackUrl("wav"),
     });
-    await spend(supabase, COSTS.wav, `Export WAV · ${project.title}`, project.id);
+    const accounting = await spend(supabase, COSTS.wav, `Export WAV · ${project.title}`, project.id, "wav");
     await supabase.from("generation_jobs").insert({
       user_id: userId,
       project_id: project.id,
@@ -580,6 +601,8 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
       status: "processing",
       suno_task_id: taskId,
       credits_spent: COSTS.wav,
+      provider_credits_spent: accounting.providerCredits,
+      provider_cost_usd: accounting.providerCostUsd,
     });
     return { taskId };
   });
@@ -606,7 +629,7 @@ export const createProjectVideo = createServerFn({ method: "POST" })
       author: "Loopster",
       callBackUrl: callbackUrl("video"),
     });
-    await spend(supabase, COSTS.video, `Clip vidéo · ${project.title}`, project.id);
+    const accounting = await spend(supabase, COSTS.video, `Clip vidéo · ${project.title}`, project.id, "video");
     await supabase.from("generation_jobs").insert({
       user_id: userId,
       project_id: project.id,
@@ -614,6 +637,8 @@ export const createProjectVideo = createServerFn({ method: "POST" })
       status: "processing",
       suno_task_id: taskId,
       credits_spent: COSTS.video,
+      provider_credits_spent: accounting.providerCredits,
+      provider_cost_usd: accounting.providerCostUsd,
     });
     return { taskId };
   });

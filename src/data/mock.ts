@@ -287,13 +287,13 @@ export const creditUsage = [
     id: "u1",
     label: "Neon Drift — Full Track",
     when: "Aujourd'hui, 14:22",
-    cost: 40,
+    cost: 80,
     kind: "song",
   },
-  { id: "u2", label: "Phonk Cathedral — Clip vidéo", when: "Hier, 21:08", cost: 120, kind: "clip" },
-  { id: "u3", label: "Aurora Choir — Visualizer", when: "il y a 2j", cost: 60, kind: "visualizer" },
-  { id: "u4", label: "808 Manifesto — Pochette", when: "il y a 3j", cost: 15, kind: "cover" },
-  { id: "u5", label: "Velvet Ballad — Paroles", when: "il y a 5j", cost: 5, kind: "lyrics" },
+  { id: "u2", label: "Phonk Cathedral — Clip vidéo", when: "Hier, 21:08", cost: 14, kind: "clip" },
+  { id: "u3", label: "Aurora Choir — Visualizer", when: "il y a 2j", cost: 67, kind: "visualizer" },
+  { id: "u4", label: "808 Manifesto — Pochette", when: "il y a 3j", cost: 0, kind: "cover" },
+  { id: "u5", label: "Velvet Ballad — Paroles", when: "il y a 5j", cost: 4, kind: "lyrics" },
 ];
 
 export const plans = [
@@ -309,7 +309,7 @@ export const plans = [
   {
     id: "pro",
     name: "Pro",
-    price: "8,99 €",
+    price: "5 900 XAF",
     period: "/mois",
     credits: 2500,
     features: ["2 500 crédits / mois", "Téléchargements MP3, WAV & vidéo", "Voix haute fidélité", "Bibliothèque privée"],
@@ -319,7 +319,7 @@ export const plans = [
   {
     id: "premier",
     name: "Premier",
-    price: "24,99 €",
+    price: "15 900 XAF",
     period: "/mois",
     credits: 10000,
     features: [
@@ -350,10 +350,10 @@ export interface CreditPack {
 }
 
 export const creditPacks: CreditPack[] = [
-  { id: "p1", credits: 200, price: "1,90€" },
-  { id: "p2", credits: 500, price: "4,90€", bonus: "+50 offerts", highlight: true },
-  { id: "p3", credits: 1200, price: "9,90€", bonus: "+200 offerts" },
-  { id: "p4", credits: 3000, price: "19,90€", bonus: "+700 offerts" },
+  { id: "p1", credits: 200, price: "1 500 XAF" },
+  { id: "p2", credits: 550, price: "3 500 XAF", bonus: "+50 offerts", highlight: true },
+  { id: "p3", credits: 1400, price: "7 000 XAF", bonus: "+200 offerts" },
+  { id: "p4", credits: 3700, price: "14 000 XAF", bonus: "+700 offerts" },
 ];
 
 export interface ChatMessage {

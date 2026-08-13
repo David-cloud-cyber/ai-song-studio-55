@@ -586,9 +586,9 @@ const pricingPlans: PricingPlan[] = [
     id: "pro",
     name: "Pro Plan",
     tagline: "Nos meilleurs modèles et outils d'édition.",
-    monthly: 8,
-    yearly: 6,
-    yearlySavings: "Économisez 24€ en facturation annuelle",
+    monthly: 5900,
+    yearly: 5900,
+    yearlySavings: "Renouvellement manuel · taxes calculées au checkout",
     badge: "Le plus populaire",
     cta: "S'abonner",
     ctaStyle: "gradient",
@@ -612,9 +612,9 @@ const pricingPlans: PricingPlan[] = [
     id: "premier",
     name: "Premier Plan",
     tagline: "Crédits maximum et toutes les fonctionnalités.",
-    monthly: 24,
-    yearly: 18,
-    yearlySavings: "Économisez 72€ en facturation annuelle",
+    monthly: 15900,
+    yearly: 15900,
+    yearlySavings: "Renouvellement manuel · taxes calculées au checkout",
     badge: "Meilleure valeur",
     cta: "S'abonner",
     ctaStyle: "solid",
@@ -674,9 +674,6 @@ function Pricing() {
               )}
             >
               Annuel
-              <span className="rounded-full bg-neon/20 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">
-                -20%
-              </span>
             </button>
           </div>
         </div>
@@ -716,8 +713,8 @@ function Pricing() {
                 </div>
 
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-5xl font-semibold tracking-tight">${price}</span>
-                  <span className="text-sm text-zinc-500">/mois</span>
+                  <span className="text-5xl font-semibold tracking-tight">{price === 0 ? "$0" : `${price.toLocaleString("fr-FR")} XAF`}</span>
+                  <span className="text-sm text-zinc-500">/30 jours</span>
                 </div>
                 {cycle === "yearly" && p.yearlySavings && (
                   <div className="mt-1.5 text-xs text-zinc-500">

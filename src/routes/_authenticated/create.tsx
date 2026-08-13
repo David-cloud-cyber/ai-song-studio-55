@@ -134,6 +134,7 @@ function CreatePage() {
             model,
             durationSeconds: duration,
             coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+            requestId: crypto.randomUUID(),
           },
         });
       }

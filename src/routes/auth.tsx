@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
 import { Sparkles, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
@@ -86,10 +85,31 @@ function AuthPage() {
   const google = async () => {
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const destination = (search.redirect as "/library" | undefined) ?? "/library";
+      const redirectTo = new URL("/auth", window.location.origin);
+      redirectTo.searchParams.set("redirect", destination);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectTo.toString(),
+        },
       });
-      if (result.error) throw result.error;
+
+      if (error) {
+        const message = error.message.toLowerCase();
+        const googleNotReady =
+          message.includes("provider") ||
+          message.includes("unsupported") ||
+          message.includes("not enabled") ||
+          message.includes("not configured");
+
+        toast.error(googleNotReady ? "Google arrive bientôt sur Loopster" : "Connexion interrompue", {
+          description: googleNotReady
+            ? "Tu peux déjà créer ton compte ou te connecter avec ton adresse email."
+            : "Pas de souci, on peut retenter quand tu veux.",
+        });
+      }
     } catch {
       toast.error("Connexion interrompue", {
         description: "Pas de souci, on peut retenter quand tu veux.",

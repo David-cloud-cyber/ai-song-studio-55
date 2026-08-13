@@ -1,31 +1,41 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { useSession } from "@/hooks/use-session";
-import { plans, creditPacks } from "@/data/mock";
-import type { CreditPack } from "@/data/mock";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
-import { Check, Sparkles, Zap } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { soon } from "@/lib/toast";
 import { FREE_DAILY_CREDITS, isPaidPlan } from "@/lib/plans";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  PRICING_PLANS,
+  cycleLabel,
+  formatXaf,
+  getPriceXaf,
+  getPricingPlan,
+  type BillingCycle,
+  type PricingPlanId,
+} from "@/lib/pricing";
+import { createFapshiCheckout } from "@/lib/payment.functions";
+import { trackEvent } from "@/lib/analytics";
+import { toast } from "sonner";
+
+const searchSchema = z.object({
+  plan: z.enum(["pro", "premier"]).optional(),
+  cycle: z.enum(["monthly", "yearly"]).optional(),
+  payment: z.enum(["return"]).optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/credits")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Crédits · Loopster" },
-      { name: "description", content: "Boutique de crédits, forfaits et historique d'usage." },
+      { title: "Formules · Loopster" },
+      { name: "description", content: "Choisis la formule Loopster adaptée à ton rythme." },
     ],
   }),
   component: CreditsPage,
@@ -40,13 +50,25 @@ type Tx = {
 };
 
 function CreditsPage() {
+  const navigate = useNavigate();
   const { user } = useSession();
   const { data: profile } = useProfile();
+  const search = Route.useSearch();
+  const startCheckout = useServerFn(createFapshiCheckout);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const credits = profile?.credits ?? 0;
-  const paid = isPaidPlan(profile);
-  const max = profile?.plan?.toLowerCase() === "premier" ? 10000 : paid ? 2500 : FREE_DAILY_CREDITS;
+  const currentPlan = String(profile?.plan ?? "free").toLowerCase();
+  const currentOffer = getPricingPlan(currentPlan);
+  const max = isPaidPlan(profile) ? currentOffer.credits : FREE_DAILY_CREDITS;
   const pct = Math.min(100, Math.round((credits / max) * 100));
-  const [selectedPack, setSelectedPack] = useState<CreditPack | null>(null);
+  const selectedPlan = search.plan ? getPricingPlan(search.plan) : null;
+  const selectedCycle: BillingCycle = search.cycle ?? "monthly";
+
+  useEffect(() => {
+    if (selectedPlan) {
+      trackEvent("checkout_viewed", { plan: selectedPlan.id, cycle: selectedCycle });
+    }
+  }, [selectedPlan, selectedCycle]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["credit-transactions", user?.id],
@@ -62,21 +84,31 @@ function CreditsPage() {
     },
   });
 
-  const confirm = () => {
-    setSelectedPack(null);
-    soon("Les recharges arrivent bientôt ✨");
+  const pay = async () => {
+    if (!selectedPlan || (selectedPlan.id !== "pro" && selectedPlan.id !== "premier")) return;
+    setPaymentBusy(true);
+    trackEvent("payment_started", { plan: selectedPlan.id, cycle: selectedCycle });
+    try {
+      const result = await startCheckout({ data: { plan: selectedPlan.id, cycle: selectedCycle } });
+      window.location.assign(result.link);
+    } catch (error) {
+      trackEvent("payment_failed", { plan: selectedPlan.id, cycle: selectedCycle });
+      toast.error("Le paiement fait une petite pause", {
+        description: error instanceof Error ? error.message : "Tu peux réessayer dans un instant.",
+      });
+    } finally {
+      setPaymentBusy(false);
+    }
   };
 
   return (
     <PageTransition>
       <section className="px-5 pt-8">
-        <SectionHeader eyebrow="Balance" title="Crédits studio" />
+        <SectionHeader eyebrow="Ton espace" title="Crédits et formules" />
         <div className="rounded-3xl border border-neon/20 bg-gradient-to-br from-neon/10 via-surface to-surface p-5">
           <div className="flex items-baseline gap-2">
             <span className="text-5xl font-semibold tracking-tight">{credits}</span>
-            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">
-              / {max} CR
-            </span>
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">/ {max} CR</span>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
             <div
@@ -84,131 +116,94 @@ function CreditsPage() {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-            <span>Solde en direct</span>
-            <span>Mis à jour {profile ? "à l'instant" : "…"}</span>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+            <span>{currentOffer.name} · {currentOffer.creationsLabel}</span>
+            <span>Mis à jour à l'instant</span>
           </div>
         </div>
       </section>
 
-      <section className="px-5 pt-8">
-        <SectionHeader
-          eyebrow="Boutique"
-          title="Packs de crédits"
-          action={
-            <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-              Paiement à l'usage
-            </span>
-          }
-        />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {creditPacks.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedPack(p)}
-              className={cn(
-                "relative overflow-hidden rounded-2xl border p-4 text-left transition-all",
-                p.highlight
-                  ? "border-neon/40 bg-neon/5 ring-1 ring-neon/20 hover:bg-neon/10"
-                  : "border-white/5 bg-surface hover:bg-surface-2",
-              )}
-            >
-              {p.highlight && (
-                <span className="absolute right-2 top-2 rounded-full bg-neon/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">
-                  Populaire
-                </span>
-              )}
-              <Zap
-                className={cn("size-5", p.highlight ? "text-neon" : "text-zinc-400")}
-                strokeWidth={2}
-              />
-              <div className="mt-3 text-2xl font-semibold tabular-nums">
-                {p.credits}
-                <span className="ml-1 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-                  CR
-                </span>
-              </div>
-              <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-neon">
-                {p.price}
-              </div>
-              {p.bonus && (
-                <div className="mt-2 font-mono text-[9px] uppercase tracking-widest text-emerald-400">
-                  {p.bonus}
+      {selectedPlan && (
+        <section className="px-5 pt-8">
+          <div className="rounded-3xl border border-neon/30 bg-neon/5 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-neon">
+                  <Sparkles className="size-3" /> Ton choix
                 </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="px-5 pt-8">
-        <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
-          Formules
-        </h3>
-        <div className="grid gap-3 md:grid-cols-3">
-          {plans.map((p) => (
-            <div
-              key={p.id}
-              className={cn(
-                "rounded-2xl border p-5",
-                p.highlight
-                  ? "border-neon/40 bg-neon/5 ring-1 ring-neon/20"
-                  : "border-white/5 bg-surface",
-              )}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-lg font-semibold">{p.name}</h4>
-                    {p.current && (
-                      <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-zinc-300">
-                        Actuel
-                      </span>
-                    )}
-                    {p.highlight && (
-                      <span className="rounded-full bg-neon/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">
-                        Populaire
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-semibold">{p.price}</span>
-                    <span className="text-xs text-zinc-400">{p.period}</span>
-                  </div>
-                </div>
-                {p.highlight && <Sparkles className="size-5 text-neon" />}
+                <h2 className="mt-2 text-2xl font-semibold">Loopster {selectedPlan.name}</h2>
+                <p className="mt-1 text-sm text-zinc-400">{selectedPlan.audience}</p>
               </div>
-              <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-neon" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="text-right">
+                <div className="text-2xl font-semibold">{formatXaf(getPriceXaf(selectedPlan, selectedCycle))}</div>
+                <div className="text-xs text-zinc-500">pour {cycleLabel(selectedCycle)}</div>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
+              <SummaryRow label="Crédits inclus" value={selectedPlan.credits.toLocaleString("fr-FR")} />
+              <SummaryRow label="Résultat attendu" value={selectedPlan.creationsLabel} />
+              <SummaryRow label="Droits commerciaux" value="Inclus" />
+              <SummaryRow label="Renouvellement" value="Manuel" />
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
-                onClick={() => soon("Les formules arrivent bientôt ✨")}
-                disabled={p.current}
-                className={cn(
-                  "mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-colors",
-                  p.current
-                    ? "bg-white/5 text-zinc-500"
-                    : p.highlight
-                      ? "bg-neon text-background"
-                      : "border border-white/10 bg-surface-2 text-foreground",
-                )}
+                type="button"
+                onClick={() => navigate({ to: "/credits", search: {} })}
+                className="min-h-11 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon"
               >
-                {p.current ? "Formule actuelle" : "Bientôt disponible"}
+                Changer de formule
+              </button>
+              <button
+                type="button"
+                onClick={pay}
+                disabled={paymentBusy}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neon px-5 py-2.5 text-sm font-semibold text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-60"
+              >
+                {paymentBusy && <Loader2 className="size-4 animate-spin" />}
+                Continuer vers le paiement
               </button>
             </div>
+            <p className="mt-3 text-center text-xs text-zinc-500 sm:text-right">
+              Prix affiché en XAF avant le paiement. Aucun coût caché.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {search.payment === "return" && (
+        <section className="px-5 pt-6">
+          <div className="rounded-2xl border border-amber-300/20 bg-amber-300/5 px-4 py-3 text-sm text-amber-100">
+            Ton paiement est en cours de vérification. La formule sera activée dès sa confirmation.
+          </div>
+        </section>
+      )}
+
+      <section className="px-5 pt-8">
+        <SectionHeader
+          eyebrow="Formules"
+          title="Crée à ton rythme"
+          action={<span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">Sans coût caché</span>}
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          {PRICING_PLANS.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              current={currentPlan === plan.id}
+              onChoose={(id: PricingPlanId) => {
+                if (id === "free") {
+                  navigate({ to: "/credits", search: {} });
+                  return;
+                }
+                navigate({ to: "/credits", search: { plan: id, cycle: selectedCycle } });
+              }}
+            />
           ))}
         </div>
       </section>
 
       <section className="px-5 pt-8">
-        <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
-          Historique
-        </h3>
+        <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">Historique</h3>
         {transactions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
             Aucun mouvement pour l'instant.
@@ -216,74 +211,74 @@ function CreditsPage() {
         ) : (
           <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-surface">
             {transactions.map((tx) => (
-              <li key={tx.id} className="flex items-center justify-between p-4">
+              <li key={tx.id} className="flex items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{tx.reason}</div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
                     {new Date(tx.created_at).toLocaleString("fr-FR")}
                   </div>
                 </div>
-                <span
-                  className={cn(
-                    "shrink-0 font-mono text-sm",
-                    tx.amount >= 0 ? "text-emerald-400" : "text-neon",
-                  )}
-                >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {tx.amount}
+                <span className={cn("shrink-0 font-mono text-sm", tx.amount >= 0 ? "text-emerald-400" : "text-neon")}>
+                  {tx.amount >= 0 ? "+" : ""}{tx.amount}
                 </span>
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      <Dialog open={!!selectedPack} onOpenChange={(o) => !o && setSelectedPack(null)}>
-        <DialogContent className="border-white/10 bg-surface text-foreground sm:max-w-md">
-          <DialogHeader>
-            <div className="mb-2 flex items-center gap-2">
-              <Zap className="size-5 text-neon" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neon">
-                Confirmer l'achat
-              </span>
-            </div>
-            <DialogTitle className="text-2xl">
-              {selectedPack?.credits} crédits pour {selectedPack?.price}
-            </DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              {selectedPack?.bonus ?? "Débité immédiatement, disponibles sans limite."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 rounded-xl border border-white/5 bg-background/40 p-4">
-            <Row label="Pack" value={`${selectedPack?.credits} CR`} />
-            <Row label="Bonus" value={selectedPack?.bonus ?? "—"} />
-            <Row label="Total" value={selectedPack?.price ?? ""} bold />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-2">
-            <button
-              onClick={() => setSelectedPack(null)}
-              className="flex-1 rounded-xl border border-white/10 bg-surface-2 py-2.5 text-sm font-medium"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={confirm}
-              className="flex-1 rounded-xl bg-neon py-2.5 text-sm font-semibold text-background"
-            >
-              Confirmer
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </PageTransition>
   );
 }
 
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+function PlanCard({
+  plan,
+  current,
+  onChoose,
+}: {
+  plan: (typeof PRICING_PLANS)[number];
+  current: boolean;
+  onChoose: (plan: PricingPlanId) => void;
+}) {
+  const price = getPriceXaf(plan, "monthly");
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-zinc-400">{label}</span>
-      <span className={cn(bold ? "font-semibold text-neon" : "text-foreground")}>{value}</span>
+    <article className={cn("rounded-2xl border p-5", plan.id === "pro" ? "border-neon/40 bg-neon/5 ring-1 ring-neon/20" : "border-white/5 bg-surface")}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">{plan.name}</h3>
+          <p className="mt-1 text-sm text-zinc-400">{plan.audience}</p>
+        </div>
+        {plan.badge && <span className="rounded-full bg-neon/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">{plan.badge}</span>}
+      </div>
+      <div className="mt-4 flex items-baseline gap-1">
+        <span className="text-2xl font-semibold">{price === 0 ? "Gratuit" : formatXaf(price)}</span>
+        {price > 0 && <span className="text-xs text-zinc-400">/30 jours</span>}
+      </div>
+      <div className="mt-1 text-sm font-medium text-neon">{plan.creationsLabel}</div>
+      <ul className="mt-4 space-y-2 text-sm text-zinc-300">
+        {plan.features.filter((feature) => feature.included).slice(0, 5).map((feature) => (
+          <li key={feature.label} className="flex items-start gap-2">
+            <Check className="mt-0.5 size-4 shrink-0 text-neon" />
+            <span>{feature.label}</span>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={() => onChoose(plan.id)}
+        disabled={current}
+        className={cn("mt-5 min-h-11 w-full rounded-xl py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon", current ? "bg-white/5 text-zinc-500" : plan.id === "pro" ? "bg-neon text-background" : "border border-white/10 bg-surface-2 text-foreground")}
+      >
+        {current ? "Formule actuelle" : plan.id === "free" ? "Garder Gratuit" : `Choisir ${plan.name}`}
+      </button>
+    </article>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-white/5 bg-background/20 px-3 py-2">
+      <span className="text-zinc-500">{label}</span>
+      <span className="text-right font-medium text-zinc-200">{value}</span>
     </div>
   );
 }

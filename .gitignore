@@ -17,6 +17,9 @@ dist-ssr
 *.local
 .env
 
+# Supabase CLI runtime metadata is local-only.
+supabase/.temp/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

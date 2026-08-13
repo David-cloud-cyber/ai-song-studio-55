@@ -31,6 +31,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as AuthenticatedEditorProjectIdRouteImport } from './routes/_authenticated/editor.$projectId'
 import { Route as AuthenticatedLibraryProjectIdRouteImport } from './routes/_authenticated/library.$projectId'
+import { Route as ApiPublicFapshiWebhookRouteImport } from './routes/api/public/fapshi-webhook'
 import { Route as ApiPublicSunoCallbackRouteImport } from './routes/api/public/suno-callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -144,6 +145,11 @@ const AuthenticatedLibraryProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
+const ApiPublicFapshiWebhookRoute = ApiPublicFapshiWebhookRouteImport.update({
+  id: '/api/public/fapshi-webhook',
+  path: '/api/public/fapshi-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSunoCallbackRoute = ApiPublicSunoCallbackRouteImport.update({
   id: '/api/public/suno-callback',
   path: '/api/public/suno-callback',
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof AuthenticatedStudioRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/studio': typeof AuthenticatedStudioRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesById {
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/_authenticated/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/_authenticated/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRouteTypes {
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   id:
     | '__root__'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/_authenticated/studio'
     | '/_authenticated/editor/$projectId'
     | '/_authenticated/library/$projectId'
+    | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   fileRoutesById: FileRoutesById
 }
@@ -315,6 +327,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
+  ApiPublicFapshiWebhookRoute: typeof ApiPublicFapshiWebhookRoute
   ApiPublicSunoCallbackRoute: typeof ApiPublicSunoCallbackRoute
 }
 
@@ -474,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryProjectIdRouteImport
       parentRoute: typeof AuthenticatedLibraryRoute
     }
+    '/api/public/fapshi-webhook': {
+      id: '/api/public/fapshi-webhook'
+      path: '/api/public/fapshi-webhook'
+      fullPath: '/api/public/fapshi-webhook'
+      preLoaderRoute: typeof ApiPublicFapshiWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/suno-callback': {
       id: '/api/public/suno-callback'
       path: '/api/public/suno-callback'
@@ -533,6 +553,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
+  ApiPublicFapshiWebhookRoute: ApiPublicFapshiWebhookRoute,
   ApiPublicSunoCallbackRoute: ApiPublicSunoCallbackRoute,
 }
 export const routeTree = rootRouteImport

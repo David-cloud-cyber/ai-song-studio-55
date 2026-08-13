@@ -32,6 +32,18 @@ export function MarketingNav() {
           </span>
         </Link>
 
+        <nav className="hidden items-center gap-5 text-sm text-zinc-400 md:flex" aria-label="Navigation principale">
+          <a className="transition-colors hover:text-foreground" href="/#gallery">
+            Galerie
+          </a>
+          <a className="transition-colors hover:text-foreground" href="/#pricing">
+            Tarifs
+          </a>
+          <a className="transition-colors hover:text-foreground" href="/#faq">
+            FAQ
+          </a>
+        </nav>
+
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link
             to="/auth"

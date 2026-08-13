@@ -201,6 +201,57 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_orders: {
+        Row: {
+          id: string
+          user_id: string
+          plan: string
+          cycle: string
+          amount_xaf: number
+          credits_granted: number
+          provider: string
+          provider_reference: string | null
+          provider_status: string
+          status: string
+          created_at: string
+          updated_at: string
+          activated_at: string | null
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan: string
+          cycle: string
+          amount_xaf: number
+          credits_granted: number
+          provider?: string
+          provider_reference?: string | null
+          provider_status?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          activated_at?: string | null
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan?: string
+          cycle?: string
+          amount_xaf?: number
+          credits_granted?: number
+          provider?: string
+          provider_reference?: string | null
+          provider_status?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          activated_at?: string | null
+          expires_at?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           audio_url: string | null
@@ -331,6 +382,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_payment_order: {
+        Args: { _amount_xaf: number; _provider_reference: string; _provider_status: string }
+        Returns: boolean
+      }
       deduct_credits: {
         Args: { _amount: number; _project_id?: string; _reason: string }
         Returns: number

@@ -4,8 +4,13 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sparkles, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
-const searchSchema = z.object({ redirect: z.string().optional() });
+const searchSchema = z.object({
+  redirect: z.string().optional(),
+  plan: z.enum(["free", "pro", "premier"]).optional(),
+  cycle: z.enum(["monthly", "yearly"]).optional(),
+});
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -31,33 +36,45 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const goAfterAuth = () => {
+    if (search.plan === "pro" || search.plan === "premier") {
+      navigate({
+        to: "/credits",
+        search: { plan: search.plan, cycle: search.cycle ?? "monthly" },
+      });
+      return;
+    }
+    navigate({ to: (search.redirect as "/library") ?? "/library" });
+  };
+
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getUser().then(({ data }) => {
       if (!cancelled && data.user) {
-        navigate({ to: (search.redirect as "/library") ?? "/library" });
+        goAfterAuth();
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [navigate, search.redirect]);
+  }, [navigate, search.plan, search.cycle, search.redirect]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    trackEvent("signup_started", { mode });
     try {
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
-        toast.success("Email envoyé", { description: "Vérifiez votre boîte mail." });
+        toast.success("Email envoyé", { description: "Vérifie ta boîte mail pour continuer." });
         setMode("signin");
         return;
       }
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -66,17 +83,39 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Compte créé", { description: "Bienvenue dans le studio." });
-        navigate({ to: "/library" });
+        trackEvent("signup_completed", { plan: search.plan });
+        if (data.session) {
+          toast.success("Bienvenue dans Loopster", { description: "Ton studio est prêt." });
+          goAfterAuth();
+        } else {
+          toast.success("Compte créé", {
+            description: "Vérifie ta boîte mail pour confirmer ton adresse.",
+          });
+        }
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate({ to: (search.redirect as "/library") ?? "/library" });
-    } catch {
-      toast.error("Oups, petit contretemps", {
-        description: "On réessaie ? Tes informations sont toujours là.",
-      });
+      goAfterAuth();
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      if (message.includes("invalid login") || message.includes("invalid credentials")) {
+        toast.error("Vérifie tes identifiants", {
+          description: "Vérifie ton adresse email et ton mot de passe, puis réessaie.",
+        });
+      } else if (message.includes("confirm") || message.includes("verified")) {
+        toast.error("Adresse email à confirmer", {
+          description: "Un lien de confirmation t'attend dans ta boîte mail.",
+        });
+      } else if (message.includes("already registered") || message.includes("already exists")) {
+        toast.error("Cette adresse est déjà utilisée", {
+          description: "Essaie de te connecter ou récupère ton mot de passe.",
+        });
+      } else {
+        toast.error("Oups, petit contretemps", {
+          description: "On réessaie ? Tes informations sont toujours là.",
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -88,6 +127,8 @@ function AuthPage() {
       const destination = (search.redirect as "/library" | undefined) ?? "/library";
       const redirectTo = new URL("/auth", window.location.origin);
       redirectTo.searchParams.set("redirect", destination);
+      if (search.plan) redirectTo.searchParams.set("plan", search.plan);
+      if (search.cycle) redirectTo.searchParams.set("cycle", search.cycle);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -104,15 +145,15 @@ function AuthPage() {
           message.includes("not enabled") ||
           message.includes("not configured");
 
-        toast.error(googleNotReady ? "Google arrive bientôt sur Loopster" : "Connexion interrompue", {
+        toast.error(googleNotReady ? "Google fait une petite pause" : "Connexion interrompue", {
           description: googleNotReady
-            ? "Tu peux déjà créer ton compte ou te connecter avec ton adresse email."
-            : "Pas de souci, on peut retenter quand tu veux.",
+            ? "Tu peux continuer avec ton adresse email, sans perdre ton choix."
+            : "Pas de souci, tu peux retenter quand tu veux.",
         });
       }
     } catch {
       toast.error("Connexion interrompue", {
-        description: "Pas de souci, on peut retenter quand tu veux.",
+        description: "Pas de souci, tu peux retenter quand tu veux.",
       });
     } finally {
       setBusy(false);
@@ -149,6 +190,12 @@ function AuthPage() {
                 : "Reprenez votre dernière session."}
           </p>
 
+          {search.plan && search.plan !== "free" && (
+            <div className="mt-4 rounded-xl border border-neon/20 bg-neon/5 px-3 py-2 text-center text-xs text-zinc-300">
+              Ton choix est gardé. Après connexion, tu verras le récapitulatif de la formule {search.plan === "pro" ? "Pro" : "Premier"}.
+            </div>
+          )}
+
           <form onSubmit={submit} className="mt-6 space-y-3">
             {mode === "signup" && (
               <Field
@@ -182,7 +229,7 @@ function AuthPage() {
             <button
               type="submit"
               disabled={busy}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-neon py-3 text-sm font-semibold text-background disabled:opacity-50"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-neon py-3 text-sm font-semibold text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -209,7 +256,7 @@ function AuthPage() {
               <button
                 onClick={google}
                 disabled={busy}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-foreground hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-50"
               >
                 <GoogleIcon />
                 Continuer avec Google
@@ -220,12 +267,12 @@ function AuthPage() {
           <div className="mt-6 space-y-2 text-center text-xs text-zinc-500">
             {mode === "signin" && (
               <>
-                <button onClick={() => setMode("forgot")} className="hover:text-neon">
+                <button onClick={() => setMode("forgot")} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon hover:text-neon">
                   Mot de passe oublié ?
                 </button>
                 <div>
                   Pas de compte ?{" "}
-                  <button onClick={() => setMode("signup")} className="font-semibold text-neon">
+                  <button onClick={() => setMode("signup")} className="font-semibold text-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon">
                     S'inscrire
                   </button>
                 </div>
@@ -234,13 +281,13 @@ function AuthPage() {
             {mode === "signup" && (
               <div>
                 Déjà inscrit ?{" "}
-                <button onClick={() => setMode("signin")} className="font-semibold text-neon">
+                <button onClick={() => setMode("signin")} className="font-semibold text-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon">
                   Se connecter
                 </button>
               </div>
             )}
             {mode === "forgot" && (
-              <button onClick={() => setMode("signin")} className="hover:text-neon">
+              <button onClick={() => setMode("signin")} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon hover:text-neon">
                 ← Retour à la connexion
               </button>
             )}
@@ -269,7 +316,7 @@ function Field({
   minLength?: number;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-background/40 px-3 py-2.5">
+    <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-background/40 px-3 py-2.5 focus-within:border-neon/60 focus-within:ring-2 focus-within:ring-neon/20">
       <span className="text-zinc-500">{icon}</span>
       <input
         type={type}
@@ -278,6 +325,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         minLength={minLength}
+        aria-label={placeholder}
         className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-600 focus:outline-none"
       />
     </label>

@@ -45,8 +45,8 @@ export function MarketingFooter() {
               <LoopsterLogo className="h-8" imageClassName="h-8 w-auto" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-zinc-500">
-              Le studio de création musicale IA pour créateurs mobile-first. Prompt to song, en
-              quelques secondes.
+              Le studio de création musicale IA pour les artistes indépendants. Une idée devient
+              un morceau, en quelques étapes.
             </p>
             <div className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
               Bêta ouverte · 2026

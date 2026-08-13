@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { HeroPromptInput } from "@/components/marketing/HeroPromptInput";
@@ -22,13 +22,20 @@ import {
   Sparkles,
   ArrowRight,
   Check,
-  X,
   Zap,
   Users,
   Rocket,
   Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  PRICING_PLANS,
+  cycleLabel,
+  formatXaf,
+  getPriceXaf,
+  type BillingCycle,
+} from "@/lib/pricing";
+import { trackEvent } from "@/lib/analytics";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -129,15 +136,15 @@ function Hero() {
         </div>
 
         <h1 className="break-words text-balance text-[clamp(2.35rem,11vw,4.5rem)] font-semibold leading-[1.02] tracking-tight">
-          Make a{" "}
+          Transforme ton idée en{" "}
           <span className="bg-gradient-to-br from-neon via-cyan-200 to-fuchsia-400 bg-clip-text text-transparent">
-            house song
+            morceau complet
           </span>{" "}
-          about quitting your job
+          en quelques instants
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-balance text-[15px] leading-relaxed text-zinc-400 md:text-lg">
-          Commencez avec un simple prompt ou plongez dans nos outils pro — votre prochain morceau
-          n'est qu'à une étape.
+          Décris ton univers, choisis ton ambiance et laisse Loopster donner vie à ta prochaine
+          création. Tu peux commencer gratuitement, sans carte bancaire.
         </p>
 
         <div className="mt-10">
@@ -259,7 +266,7 @@ function LogosBar() {
     <section className="relative overflow-hidden border-y border-white/10 bg-zinc-950/80 py-6 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-5 text-center">
         <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-400">
-          Exportation & distribution 100% compatibles
+          Pensé pour accompagner tes outils de création
         </div>
       </div>
 
@@ -348,9 +355,9 @@ function Gallery() {
   return (
     <section id="gallery" className="overflow-hidden py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-5">
-        <SectionEyebrow>Live from the community</SectionEyebrow>
+        <SectionEyebrow>Exemples visuels</SectionEyebrow>
         <SectionTitle>
-          Des milliers de morceaux <span className="text-zinc-500">créés chaque semaine.</span>
+          Des idées qui prennent forme <span className="text-zinc-500">en quelques étapes.</span>
         </SectionTitle>
       </div>
       <div className="no-scrollbar mt-12 flex gap-5 overflow-x-auto px-5 md:px-10">
@@ -365,7 +372,7 @@ function Gallery() {
               <div className="truncate text-sm font-semibold">{p.title}</div>
               <div className="mt-0.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-zinc-500">
                 <span>{p.authorHandle}</span>
-                <span>{p.likes.toLocaleString("fr-FR")} ♥</span>
+                <span>Exemple Loopster</span>
               </div>
             </div>
           </div>
@@ -469,26 +476,26 @@ function TemplatesShowcase() {
 /* ---------------- SOCIAL PROOF ---------------- */
 function SocialProof() {
   const stats = [
-    { n: "12 000+", l: "morceaux générés" },
-    { n: "3 400+", l: "créateurs actifs" },
-    { n: "24", l: "genres musicaux" },
-    { n: "4.9/5", l: "satisfaction bêta" },
+    { n: "80", l: "crédits offerts chaque jour" },
+    { n: "1", l: "création standard gratuite par jour" },
+    { n: "0", l: "carte bancaire pour commencer" },
+    { n: "100 %", l: "pensé pour les artistes" },
   ];
   const quotes = [
     {
-      q: "Je sors un beat complet en 30 secondes. Ça a changé mon workflow.",
-      a: "Naomi K.",
-      r: "Beatmaker",
+      q: "Pars d'une phrase, d'une ambiance ou d'un refrain et construis ton morceau étape par étape.",
+      a: "Ton idée",
+      r: "Point de départ",
     },
     {
-      q: "Enfin un outil qui comprend mes prompts. Les pochettes sont dingues.",
-      a: "Ilyas B.",
-      r: "Producer",
+      q: "Écoute tes créations gratuitement dans ta bibliothèque avant de choisir une formule.",
+      a: "Ta bibliothèque",
+      r: "Écoute libre",
     },
     {
-      q: "Mes clips TikTok sont générés en quelques minutes. Game changer.",
-      a: "Sora M.",
-      r: "Content creator",
+      q: "Passe à Pro ou Premier quand tu veux exporter et produire avec plus de liberté.",
+      a: "Ton rythme",
+      r: "Formule flexible",
     },
   ];
   return (
@@ -544,100 +551,12 @@ function SocialProof() {
   );
 }
 
-/* ---------------- PRICING ---------------- */
-type BillingCycle = "monthly" | "yearly";
-
-type PricingPlan = {
-  id: string;
-  name: string;
-  tagline: string;
-  monthly: number;
-  yearly: number;
-  yearlySavings: string;
-  badge?: string;
-  cta: string;
-  ctaStyle: "outline" | "gradient" | "solid";
-  features: { label: string; included: boolean }[];
-};
-
-const pricingPlans: PricingPlan[] = [
-  {
-    id: "free",
-    name: "Free Plan",
-    tagline: "Notre formule de départ.",
-    monthly: 0,
-    yearly: 0,
-    yearlySavings: "",
-    cta: "S'inscrire",
-    ctaStyle: "outline",
-    features: [
-      { label: "Accès à Loopster v4.5-all", included: true },
-      { label: "80 crédits renouvelés chaque jour", included: true },
-      { label: "Usage commercial", included: false },
-      { label: "Fonctionnalités standard uniquement", included: true },
-      { label: "Téléchargements réservés aux abonnés", included: false },
-      { label: "Upload jusqu'à 8 min d'audio", included: true },
-      { label: "File de génération partagée", included: true },
-      { label: "Achat de crédits add-on", included: false },
-      { label: "Séparation de stems", included: false },
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro Plan",
-    tagline: "Nos meilleurs modèles et outils d'édition.",
-    monthly: 5900,
-    yearly: 5900,
-    yearlySavings: "Renouvellement manuel · taxes calculées au checkout",
-    badge: "Le plus populaire",
-    cta: "S'abonner",
-    ctaStyle: "gradient",
-    features: [
-      { label: "Accès au meilleur modèle v5.5", included: true },
-      { label: "2 500 crédits, renouvelés chaque mois", included: true },
-      { label: "Droits commerciaux sur toutes les créations", included: true },
-      { label: "Fonctionnalités Standard + Pro (personas, édition avancée)", included: true },
-      { label: "2 types de séparation de stems (Auto ; Split from mix)", included: true },
-      { label: "Séparation Advanced Split", included: false },
-      { label: "Upload jusqu'à 30 min d'audio", included: true },
-      { label: "Ajout de voix ou instrumentales à un morceau existant", included: true },
-      { label: "Accès anticipé aux nouvelles fonctionnalités", included: true },
-      { label: "Achat de crédits add-on", included: true },
-      { label: "File prioritaire, jusqu'à 10 morceaux en parallèle", included: true },
-      { label: "Enregistrement et création avec votre propre voix", included: true },
-      { label: "Fine-tune de v5.5 avec votre audio", included: true },
-    ],
-  },
-  {
-    id: "premier",
-    name: "Premier Plan",
-    tagline: "Crédits maximum et toutes les fonctionnalités.",
-    monthly: 15900,
-    yearly: 15900,
-    yearlySavings: "Renouvellement manuel · taxes calculées au checkout",
-    badge: "Meilleure valeur",
-    cta: "S'abonner",
-    ctaStyle: "solid",
-    features: [
-      { label: "Accès à Loopster Studio", included: true },
-      { label: "Accès au meilleur modèle v5.5", included: true },
-      { label: "10 000 crédits, renouvelés chaque mois", included: true },
-      { label: "Droits commerciaux sur toutes les créations", included: true },
-      { label: "Fonctionnalités Standard + Pro (personas, édition avancée)", included: true },
-      { label: "3 types de séparation (Auto ; Split from mix ; Advanced split)", included: true },
-      { label: "Upload jusqu'à 30 min d'audio", included: true },
-      { label: "Ajout de voix ou instrumentales à un morceau existant", included: true },
-      { label: "Accès anticipé aux nouvelles fonctionnalités", included: true },
-      { label: "Achat de crédits add-on", included: true },
-      { label: "File prioritaire, jusqu'à 10 morceaux en parallèle", included: true },
-      { label: "Enregistrement et création avec votre propre voix", included: true },
-      { label: "Fine-tune de v5.5 avec votre audio", included: true },
-    ],
-  },
-];
-
 function Pricing() {
   const [cycle, setCycle] = useState<BillingCycle>("yearly");
+
+  useEffect(() => {
+    trackEvent("pricing_view", { cycle });
+  }, [cycle]);
 
   return (
     <section id="pricing" className="border-y border-white/5 bg-surface/30 px-5 py-24 md:py-32">
@@ -648,15 +567,21 @@ function Pricing() {
             de la musique gratuitement
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm text-zinc-400">
-            Choisissez la formule qui vous correspond
+            Écoute gratuitement. Passe à une formule payante quand tu veux exporter et produire davantage.
           </p>
 
           {/* Monthly / Yearly toggle */}
-          <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-white/10 bg-background/60 p-1 backdrop-blur-xl">
+          <div
+            className="mt-8 inline-flex items-center gap-1 rounded-full border border-white/10 bg-background/60 p-1 backdrop-blur-xl"
+            role="tablist"
+            aria-label="Période de facturation"
+          >
             <button
               onClick={() => setCycle("monthly")}
+              aria-selected={cycle === "monthly"}
+              role="tab"
               className={cn(
-                "rounded-full px-5 py-2 text-sm font-medium transition-all duration-300",
+                "min-h-10 rounded-full px-5 py-2 text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon",
                 cycle === "monthly"
                   ? "bg-white/10 text-foreground"
                   : "text-zinc-400 hover:text-foreground",
@@ -666,21 +591,26 @@ function Pricing() {
             </button>
             <button
               onClick={() => setCycle("yearly")}
+              aria-selected={cycle === "yearly"}
+              role="tab"
               className={cn(
-                "inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-all duration-300",
+                "inline-flex min-h-10 items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon",
                 cycle === "yearly"
                   ? "bg-white/10 text-foreground"
                   : "text-zinc-400 hover:text-foreground",
               )}
             >
-              Annuel
+              Annuel · 12 mois
             </button>
           </div>
+          <p className="mt-3 text-xs text-zinc-500">
+            Renouvellement manuel. Aucun coût caché.
+          </p>
         </div>
 
         <div className="mt-14 grid gap-5 md:grid-cols-3">
-          {pricingPlans.map((p) => {
-            const price = cycle === "yearly" ? p.yearly : p.monthly;
+          {PRICING_PLANS.map((p) => {
+            const price = getPriceXaf(p, cycle);
             const isPopular = p.id === "pro";
             return (
               <div
@@ -695,7 +625,7 @@ function Pricing() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-2xl font-semibold tracking-tight">{p.name}</h3>
-                    <p className="mt-1 text-sm text-zinc-400">{p.tagline}</p>
+                    <p className="mt-1 text-sm text-zinc-400">{p.audience}</p>
                   </div>
                   {p.badge && (
                     <span
@@ -713,57 +643,65 @@ function Pricing() {
                 </div>
 
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-5xl font-semibold tracking-tight">{price === 0 ? "$0" : `${price.toLocaleString("fr-FR")} XAF`}</span>
-                  <span className="text-sm text-zinc-500">/30 jours</span>
+                  <span className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                    {price === 0 ? "Gratuit" : formatXaf(price)}
+                  </span>
+                  {price > 0 && <span className="text-sm text-zinc-500">/{cycleLabel(cycle)}</span>}
                 </div>
+                <p className="mt-2 text-sm font-medium text-neon">{p.creationsLabel}</p>
                 {cycle === "yearly" && p.yearlySavings && (
-                  <div className="mt-1.5 text-xs text-zinc-500">
-                    {p.yearlySavings}
-                    <br />
-                    Taxes calculées au checkout
-                  </div>
-                )}
-                {cycle === "yearly" && !p.yearlySavings && (
-                  <div className="mt-1.5 text-xs text-transparent">.</div>
+                  <p className="mt-1 text-xs text-zinc-400">{p.yearlySavings}</p>
                 )}
 
                 <Link
                   to="/auth"
+                  search={{ plan: p.id, cycle }}
+                  onClick={() => {
+                    trackEvent("pricing_plan_selected", { plan: p.id, cycle, amount_xaf: price });
+                    if (p.id !== "free") trackEvent("upgrade_started", { plan: p.id, cycle });
+                  }}
                   className={cn(
-                    "mt-6 inline-flex items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition-transform hover:scale-[1.02]",
-                    p.ctaStyle === "gradient" &&
+                    "mt-6 inline-flex min-h-11 items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon",
+                    p.id === "pro" &&
                       "bg-gradient-to-r from-orange-500 via-fuchsia-500 to-fuchsia-600 text-white shadow-[0_10px_40px_-10px_rgba(217,70,239,0.6)]",
-                    p.ctaStyle === "solid" && "bg-foreground text-background",
-                    p.ctaStyle === "outline" &&
+                    p.id === "premier" && "bg-foreground text-background",
+                    p.id === "free" &&
                       "border border-white/10 bg-white/[0.04] text-foreground hover:bg-white/[0.08]",
                   )}
                 >
-                  {p.cta}
+                  {p.id === "free" ? "Commencer gratuitement" : `Choisir ${p.name}`}
                 </Link>
 
                 <ul className="mt-7 space-y-3 text-sm">
-                  {p.features.map((f) => (
+                  {p.features.filter((f) => f.included).map((f) => (
                     <li key={f.label} className="flex items-start gap-2.5">
-                      {f.included ? (
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-400" />
-                      ) : (
-                        <X className="mt-0.5 size-4 shrink-0 text-zinc-600" />
-                      )}
-                      <span
-                        className={cn(
-                          "leading-snug",
-                          f.included ? "text-zinc-200" : "text-zinc-500 line-through",
-                        )}
-                      >
-                        {f.label}
-                      </span>
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-400" aria-hidden />
+                      <span className="leading-snug text-zinc-200">{f.label}</span>
                     </li>
                   ))}
                 </ul>
+
+                <details className="mt-5 border-t border-white/10 pt-4">
+                  <summary className="cursor-pointer text-sm font-medium text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-neon">
+                    Voir le détail des fonctions
+                  </summary>
+                  <ul className="mt-3 space-y-2 text-sm text-zinc-400">
+                    {p.details.filter((f) => f.included).map((f) => (
+                      <li key={f.label} className="flex items-start gap-2">
+                        <Check className="mt-0.5 size-4 shrink-0 text-zinc-500" aria-hidden />
+                        <span>{f.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </div>
             );
           })}
         </div>
+        <p className="mx-auto mt-8 max-w-3xl text-center text-xs leading-relaxed text-zinc-500">
+          Les crédits servent aussi aux paroles, aux fichiers WAV, aux vidéos et aux séparations de pistes.
+          Une création avancée peut donc utiliser davantage de crédits.
+        </p>
       </div>
     </section>
   );
@@ -772,28 +710,28 @@ function Pricing() {
 /* ---------------- FAQ ---------------- */
 const faqs = [
   {
-    q: "Quelle IA est utilisée sous le capot ?",
-    a: "Un pipeline propriétaire combinant modèles open-source (audio, voix, image) et fine-tunes maison sur des styles musicaux.",
+    q: "Combien puis-je créer gratuitement ?",
+    a: "Tu reçois 80 crédits chaque jour, soit environ une création standard. Les crédits se renouvellent automatiquement.",
   },
   {
-    q: "Puis-je utiliser mes créations commercialement ?",
-    a: "Oui, les morceaux générés vous appartiennent. Les forfaits Creator et Studio Pro incluent les droits commerciaux étendus.",
+    q: "Puis-je exporter mes créations ?",
+    a: "L'écoute est gratuite dans ta bibliothèque. L'export des morceaux est réservé aux formules Pro et Premier.",
   },
   {
-    q: "Combien de crédits par morceau ?",
-    a: "Environ 40 crédits pour un morceau complet, 5 pour des paroles, 15 pour une pochette, 120 pour un clip vidéo.",
+    q: "Les droits commerciaux sont-ils inclus ?",
+    a: "Oui, les formules Pro et Premier incluent les droits commerciaux sur les créations éligibles.",
   },
   {
-    q: "Puis-je collaborer avec d'autres artistes ?",
-    a: "Oui, les sessions collab permettent chat, présence en direct et édition partagée sur les forfaits Creator et Studio Pro.",
+    q: "Que sont les crédits ?",
+    a: "Ils servent aux créations et aux outils comme les paroles, le WAV, les vidéos et les séparations de pistes. Les outils avancés utilisent davantage de crédits.",
   },
   {
-    q: "Y a-t-il une version offline ou desktop ?",
-    a: "Pas encore. Loopster est web-first et mobile-first. Une app native iOS/Android est en préparation.",
+    q: "Puis-je changer de formule ?",
+    a: "Oui. Tu peux choisir une autre formule depuis ton espace avant de lancer le paiement.",
   },
   {
-    q: "Comment sont formés vos modèles ?",
-    a: "Sur des datasets sous licence et des contributions communautaires opt-in. Aucune donnée utilisateur n'est utilisée sans consentement.",
+    q: "Comment fonctionne le paiement ?",
+    a: "Tu choisis une formule, tu vérifies le récapitulatif, puis tu règles en toute sécurité. La formule est activée après confirmation du paiement.",
   },
 ];
 
@@ -832,7 +770,7 @@ function FinalCta() {
         <div className="relative overflow-hidden rounded-[28px] border border-neon/20 bg-gradient-to-br from-neon/15 via-surface to-surface p-6 text-center sm:p-10 md:rounded-[36px] md:p-16">
           <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-[600px] -translate-x-1/2 bg-[radial-gradient(50%_50%_at_50%_50%,rgba(34,211,238,0.35),transparent_70%)]" />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/40 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.24em] text-neon">
-            <Users className="size-3" /> 3 400+ créateurs
+            <Users className="size-3" /> Pour les artistes indépendants
           </div>
           <h2 className="text-balance text-[clamp(2rem,9vw,3rem)] font-semibold leading-[1.05] tracking-tight md:text-6xl">
             Prêt à composer votre <br className="hidden md:block" />
@@ -841,8 +779,7 @@ function FinalCta() {
             </span>
           </h2>
           <p className="mx-auto mt-4 max-w-full text-sm text-zinc-400 sm:max-w-lg md:text-base">
-            80 crédits offerts chaque jour, aucune carte requise. Créez votre première piste en moins de 60
-            secondes.
+            80 crédits offerts chaque jour, aucune carte requise. Commence ta première création dès maintenant.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-2 sm:flex-row">
             <Link

@@ -9,7 +9,8 @@ export function OnboardingGate() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (pathname.startsWith("/onboarding")) return;
+    // A selected paid plan must be reviewable immediately after authentication.
+    if (pathname.startsWith("/onboarding") || pathname.startsWith("/credits")) return;
     try {
       const done = window.localStorage.getItem(KEY);
       if (!done) {

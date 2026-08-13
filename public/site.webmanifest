@@ -1,0 +1,17 @@
+{
+  "name": "Loopster",
+  "short_name": "Loopster",
+  "description": "Le studio créatif musical Loopster.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090b10",
+  "theme_color": "#090b10",
+  "icons": [
+    {
+      "src": "/loopster-mark.svg?v=loopster-1",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

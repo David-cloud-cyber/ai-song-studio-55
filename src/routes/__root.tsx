@@ -96,9 +96,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml", sizes: "any" },
-      { rel: "mask-icon", href: "/favicon.svg", color: "#22d3ee" },
-      { rel: "apple-touch-icon", href: "/loopster-mark.svg" },
+      { rel: "icon", href: "/favicon.svg?v=loopster-1", type: "image/svg+xml", sizes: "any" },
+      { rel: "shortcut icon", href: "/favicon.svg?v=loopster-1", type: "image/svg+xml" },
+      { rel: "mask-icon", href: "/favicon.svg?v=loopster-1", color: "#22d3ee" },
+      { rel: "apple-touch-icon", href: "/loopster-mark.svg?v=loopster-1" },
+      { rel: "manifest", href: "/site.webmanifest?v=loopster-1" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

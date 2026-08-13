@@ -96,11 +96,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg?v=loopster-1", type: "image/svg+xml", sizes: "any" },
-      { rel: "shortcut icon", href: "/favicon.svg?v=loopster-1", type: "image/svg+xml" },
-      { rel: "mask-icon", href: "/favicon.svg?v=loopster-1", color: "#22d3ee" },
-      { rel: "apple-touch-icon", href: "/loopster-mark.svg?v=loopster-1" },
-      { rel: "manifest", href: "/site.webmanifest?v=loopster-1" },
+      { rel: "icon", href: "/favicon.ico?v=loopster-2", type: "image/x-icon", sizes: "32x32" },
+      { rel: "icon", href: "/favicon.svg?v=loopster-2", type: "image/svg+xml", sizes: "any" },
+      { rel: "shortcut icon", href: "/favicon.ico?v=loopster-2", type: "image/x-icon" },
+      { rel: "mask-icon", href: "/favicon.svg?v=loopster-2", color: "#22d3ee" },
+      { rel: "apple-touch-icon", href: "/loopster-mark.svg?v=loopster-2" },
+      { rel: "manifest", href: "/site.webmanifest?v=loopster-2" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

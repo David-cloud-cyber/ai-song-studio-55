@@ -22,7 +22,7 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
 
     const apiKey = process.env.FAPSHI_API_KEY;
     const apiUser = process.env.FAPSHI_API_USER;
-    const baseUrl = process.env.FAPSHI_API_URL ?? "https://api.fapshi.com";
+    const baseUrl = process.env.FAPSHI_API_URL ?? "https://live.fapshi.com";
     if (!apiKey || !apiUser || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Le paiement n'est pas encore activé sur Loopster.");
     }

@@ -1,246 +1,238 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { onboardingStyles, moods, voices } from "@/data/mock";
+import { ArrowRight, Check, Music2, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { markOnboardingDone } from "@/components/studio/OnboardingGate";
-import { ArrowRight, Check, Sparkles, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
-      { title: "Bienvenue · Loopster" },
-      { name: "description", content: "Configurez votre studio en quelques étapes." },
+      { title: "Bienvenue dans Loopster" },
+      { name: "description", content: "Prépare ton espace de création Loopster." },
     ],
   }),
   component: OnboardingPage,
 });
 
-const STEPS = ["style", "voice", "prompt", "credits"] as const;
+const styles = ["Afro pop", "R&B", "Synthwave", "Phonk", "Lo-fi", "Cinematic", "House", "Rap"];
+const moods = ["Solaire", "Mélancolique", "Énergique", "Rêveur", "Sombre", "Chill"];
+const voices = ["Voix féminine", "Voix masculine", "Chœur", "Instrumental"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [style, setStyle] = useState<string | null>(null);
-  const [voice, setVoice] = useState<string | null>(null);
   const [mood, setMood] = useState<string | null>(null);
+  const [voice, setVoice] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
 
-  const canNext =
-    (step === 0 && style) ||
-    (step === 1 && voice && mood) ||
-    (step === 2 && prompt.trim().length > 4) ||
-    step === 3;
-
+  const canContinue =
+    step === 0 ? !!style : step === 1 ? !!mood && !!voice : prompt.trim().length > 4;
   const finish = () => {
+    try {
+      window.localStorage.setItem(
+        "loopster.onboarding.preferences",
+        JSON.stringify({ style, mood, voice, prompt: prompt.trim() }),
+      );
+    } catch {
+      /* La création reste disponible. */
+    }
     markOnboardingDone();
-    navigate({ to: "/studio" });
-  };
-
-  const next = () => {
-    if (step < STEPS.length - 1) setStep((s) => s + 1);
-    else finish();
+    navigate({ to: "/create" });
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col px-5 pt-10 md:max-w-lg md:pt-16">
-      <div className="mb-8 flex items-center justify-between">
-        <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">
-          Loopster · Onboarding
+    <div className="mx-auto flex min-h-screen max-w-xl flex-col px-5 py-8 sm:px-8 sm:py-12">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
+          <Music2 className="size-4" /> Ton espace Loopster
         </div>
         <button
+          type="button"
           onClick={finish}
-          className="font-mono text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
-          Passer
+          Passer pour l’instant
         </button>
       </div>
-
-      <div className="mb-8 flex gap-1.5">
-        {STEPS.map((_, i) => (
+      <div className="mt-8 flex gap-1.5" aria-label={`Étape ${step + 1} sur 3`}>
+        {[0, 1, 2].map((index) => (
           <div
-            key={i}
-            className={cn(
-              "h-1 flex-1 rounded-full transition-colors",
-              i <= step ? "bg-neon" : "bg-white/10",
-            )}
+            key={index}
+            className={cn("h-1 flex-1 rounded-full", index <= step ? "bg-primary" : "bg-border")}
           />
         ))}
       </div>
-
-      <div className="flex-1">
+      <div className="flex-1 pt-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
           >
             {step === 0 && (
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Quel est ton son&nbsp;?</h1>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Choisis un style pour calibrer ton studio IA.
-                </p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  {onboardingStyles.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setStyle(s.id)}
-                      className={cn(
-                        "group relative overflow-hidden rounded-2xl border p-4 text-left transition-all",
-                        style === s.id
-                          ? "border-neon/60 ring-1 ring-neon/40"
-                          : "border-white/5 bg-surface hover:bg-surface-2",
-                      )}
-                    >
-                      <div
-                        className={`absolute inset-0 -z-10 bg-gradient-to-br ${s.gradient} opacity-${style === s.id ? "40" : "15"} transition-opacity`}
-                      />
-                      <div className="text-2xl">{s.emoji}</div>
-                      <div className="mt-2 text-sm font-semibold">{s.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <Step
+                title="Quel univers veux-tu explorer ?"
+                description="Choisis une direction pour que Loopster te propose de meilleurs points de départ."
+              >
+                <ChoiceGrid items={styles} value={style} onChange={setStyle} />
+              </Step>
             )}
-
             {step === 1 && (
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Ta voix, ton mood</h1>
-                <p className="mt-2 text-sm text-zinc-400">On peaufine ton profil créatif.</p>
-                <div className="mt-6">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-                    Voix préférée
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {voices.map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setVoice(v)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs transition-colors",
-                          voice === v
-                            ? "border-neon/60 bg-neon/10 text-neon"
-                            : "border-white/10 bg-surface text-zinc-300 hover:bg-surface-2",
-                        )}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-                    Ambiance
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {moods.map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setMood(m)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs transition-colors",
-                          mood === m
-                            ? "border-neon/60 bg-neon/10 text-neon"
-                            : "border-white/10 bg-surface text-zinc-300 hover:bg-surface-2",
-                        )}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <Step
+                title="Quelle énergie te ressemble ?"
+                description="Tu pourras toujours changer d’avis dans ton studio."
+              >
+                <ChoiceGroup label="Ambiance" items={moods} value={mood} onChange={setMood} />
+                <ChoiceGroup label="Voix" items={voices} value={voice} onChange={setVoice} />
+              </Step>
             )}
-
             {step === 2 && (
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Ton premier prompt</h1>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Décris le morceau que tu veux créer. On préparera un draft.
-                </p>
-                <div className="mt-6 rounded-2xl border border-white/10 bg-surface p-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="size-4 text-neon" />
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-neon">
-                      Prompt
-                    </span>
+              <Step
+                title="Donne-nous une première idée"
+                description="Même une phrase suffit. Tu pourras l’améliorer ensuite."
+              >
+                <div className="rounded-3xl border border-border bg-surface p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="size-4 text-primary" /> Ton point de départ
                   </div>
                   <textarea
                     value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Un track phonk sombre, 140 BPM, avec un drop cinématique…"
-                    rows={5}
-                    className="mt-2 w-full resize-none bg-transparent text-sm text-foreground placeholder:text-zinc-600 focus:outline-none"
+                    onChange={(event) => setPrompt(event.target.value)}
+                    rows={6}
+                    placeholder="Une chanson R&B douce sur le fait de recommencer…"
+                    className="mt-4 w-full resize-none bg-transparent text-sm leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none"
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {["Cinématique", "808 lourd", "Voix chuchotée", "Drop épique"].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setPrompt((p) => (p ? p + ", " + c.toLowerCase() : c))}
-                      className="rounded-full border border-white/10 bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-zinc-400 hover:text-neon"
-                    >
-                      + {c}
-                    </button>
-                  ))}
+                  {["Une ambiance nocturne", "Un refrain accrocheur", "Une énergie dansante"].map(
+                    (suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() =>
+                          setPrompt((current) =>
+                            current ? `${current}, ${suggestion.toLowerCase()}` : suggestion,
+                          )
+                        }
+                        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-primary"
+                      >
+                        + {suggestion}
+                      </button>
+                    ),
+                  )}
                 </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="text-center">
-                <div className="mx-auto grid size-20 place-items-center rounded-full bg-neon/15 ring-1 ring-neon/40">
-                  <Gift className="size-9 text-neon" />
-                </div>
-                <h1 className="mt-6 text-3xl font-semibold tracking-tight">80 crédits offerts chaque jour</h1>
-                <p className="mt-2 text-sm text-zinc-400">
-                  De quoi générer une chanson complète, une pochette et un clip.
-                </p>
-                <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left">
-                  {[
-                    "80 crédits ajoutés à ton studio chaque jour",
-                    "Style " + (style ?? "personnalisé") + " calibré",
-                    "1 rendu prioritaire offert",
-                    "Accès à la Library & au Feed",
-                  ].map((t) => (
-                    <li
-                      key={t}
-                      className="flex items-start gap-2 rounded-xl border border-white/5 bg-surface px-3 py-2 text-sm"
-                    >
-                      <Check className="mt-0.5 size-4 shrink-0 text-neon" />
-                      <span>{t}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              </Step>
             )}
           </motion.div>
         </AnimatePresence>
       </div>
-
-      <div className="sticky bottom-0 mt-8 flex items-center gap-3 py-6">
+      <div className="flex items-center gap-3 border-t border-border-subtle pt-6">
         {step > 0 && (
           <button
-            onClick={() => setStep((s) => s - 1)}
-            className="rounded-full border border-white/10 bg-surface px-4 py-3 text-sm"
+            type="button"
+            onClick={() => setStep((current) => current - 1)}
+            className="rounded-full border border-border bg-surface px-4 py-3 text-sm"
           >
             Retour
           </button>
         )}
         <button
-          onClick={next}
-          disabled={!canNext}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold transition-opacity",
-            canNext ? "bg-neon text-background" : "bg-white/5 text-zinc-500",
-          )}
+          type="button"
+          onClick={() => (step === 2 ? finish() : setStep((current) => current + 1))}
+          disabled={!canContinue}
+          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {step === STEPS.length - 1 ? "Entrer dans le studio" : "Continuer"}
+          {step === 2 ? "Entrer dans le studio" : "Continuer"}
           <ArrowRight className="size-4" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function Step({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
+      <div className="mt-8">{children}</div>
+    </div>
+  );
+}
+function ChoiceGrid({
+  items,
+  value,
+  onChange,
+}: {
+  items: string[];
+  value: string | null;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {items.map((item) => (
+        <button
+          key={item}
+          type="button"
+          onClick={() => onChange(item)}
+          className={cn(
+            "rounded-2xl border p-4 text-left text-sm font-medium",
+            value === item
+              ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
+              : "border-border bg-surface hover:border-primary/40",
+          )}
+        >
+          {value === item && <Check className="mb-3 size-4" />}
+          {item}
+        </button>
+      ))}
+    </div>
+  );
+}
+function ChoiceGroup({
+  label,
+  items,
+  value,
+  onChange,
+}: {
+  label: string;
+  items: string[];
+  value: string | null;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="mb-7">
+      <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onChange(item)}
+            className={cn(
+              "rounded-full border px-3.5 py-2 text-sm",
+              value === item
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-surface text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {item}
+          </button>
+        ))}
       </div>
     </div>
   );

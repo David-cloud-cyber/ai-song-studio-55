@@ -15,20 +15,27 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LegalRouteImport } from './routes/legal'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthenticatedCollabRouteImport } from './routes/_authenticated/collab'
 import { Route as AuthenticatedCreateRouteImport } from './routes/_authenticated/create'
 import { Route as AuthenticatedCreditsRouteImport } from './routes/_authenticated/credits'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedEditorProjectIdRouteImport } from './routes/_authenticated/editor.$projectId'
 import { Route as AuthenticatedLibraryProjectIdRouteImport } from './routes/_authenticated/library.$projectId'
 import { Route as ApiPublicFapshiWebhookRouteImport } from './routes/api/public/fapshi-webhook'
@@ -63,14 +70,29 @@ const CookiesRoute = CookiesRouteImport.update({
   path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LegalRoute = LegalRouteImport.update({
   id: '/legal',
   path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MentionsLegalesRoute = MentionsLegalesRouteImport.update({
@@ -83,9 +105,19 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -101,6 +133,11 @@ const TemplatesRoute = TemplatesRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCollabRoute = AuthenticatedCollabRouteImport.update({
@@ -133,6 +170,11 @@ const AuthenticatedStudioRoute = AuthenticatedStudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthenticatedEditorProjectIdRoute =
   AuthenticatedEditorProjectIdRouteImport.update({
     id: '/editor/$projectId',
@@ -158,24 +200,31 @@ const ApiPublicSunoCallbackRoute = ApiPublicSunoCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/features': typeof FeaturesRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/legal': typeof LegalRoute
+  '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/collab': typeof AuthenticatedCollabRoute
   '/create': typeof AuthenticatedCreateRoute
   '/credits': typeof AuthenticatedCreditsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/studio': typeof AuthenticatedStudioRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
@@ -183,24 +232,31 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/features': typeof FeaturesRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/legal': typeof LegalRoute
+  '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/collab': typeof AuthenticatedCollabRoute
   '/create': typeof AuthenticatedCreateRoute
   '/credits': typeof AuthenticatedCreditsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/studio': typeof AuthenticatedStudioRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
@@ -210,24 +266,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/features': typeof FeaturesRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/legal': typeof LegalRoute
+  '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_authenticated/collab': typeof AuthenticatedCollabRoute
   '/_authenticated/create': typeof AuthenticatedCreateRoute
   '/_authenticated/credits': typeof AuthenticatedCreditsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/_authenticated/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
@@ -241,20 +304,27 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/cookies'
+    | '/features'
     | '/feed'
+    | '/forgot-password'
     | '/legal'
+    | '/login'
     | '/mentions-legales'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
+    | '/register'
     | '/reset-password'
     | '/templates'
     | '/terms'
+    | '/verify-email'
     | '/collab'
     | '/create'
     | '/credits'
     | '/library'
     | '/settings'
     | '/studio'
+    | '/auth/callback'
     | '/editor/$projectId'
     | '/library/$projectId'
     | '/api/public/fapshi-webhook'
@@ -266,20 +336,27 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/cookies'
+    | '/features'
     | '/feed'
+    | '/forgot-password'
     | '/legal'
+    | '/login'
     | '/mentions-legales'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
+    | '/register'
     | '/reset-password'
     | '/templates'
     | '/terms'
+    | '/verify-email'
     | '/collab'
     | '/create'
     | '/credits'
     | '/library'
     | '/settings'
     | '/studio'
+    | '/auth/callback'
     | '/editor/$projectId'
     | '/library/$projectId'
     | '/api/public/fapshi-webhook'
@@ -292,20 +369,27 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/cookies'
+    | '/features'
     | '/feed'
+    | '/forgot-password'
     | '/legal'
+    | '/login'
     | '/mentions-legales'
     | '/onboarding'
+    | '/pricing'
     | '/privacy'
+    | '/register'
     | '/reset-password'
     | '/templates'
     | '/terms'
+    | '/verify-email'
     | '/_authenticated/collab'
     | '/_authenticated/create'
     | '/_authenticated/credits'
     | '/_authenticated/library'
     | '/_authenticated/settings'
     | '/_authenticated/studio'
+    | '/auth/callback'
     | '/_authenticated/editor/$projectId'
     | '/_authenticated/library/$projectId'
     | '/api/public/fapshi-webhook'
@@ -315,18 +399,24 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   ChangelogRoute: typeof ChangelogRoute
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
+  FeaturesRoute: typeof FeaturesRoute
   FeedRoute: typeof FeedRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LegalRoute: typeof LegalRoute
+  LoginRoute: typeof LoginRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   OnboardingRoute: typeof OnboardingRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
   ApiPublicFapshiWebhookRoute: typeof ApiPublicFapshiWebhookRoute
   ApiPublicSunoCallbackRoute: typeof ApiPublicSunoCallbackRoute
 }
@@ -375,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/feed': {
       id: '/feed'
       path: '/feed'
@@ -382,11 +479,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/legal': {
       id: '/legal'
       path: '/legal'
       fullPath: '/legal'
       preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mentions-legales': {
@@ -403,11 +514,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -429,6 +554,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/collab': {
@@ -472,6 +604,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/studio'
       preLoaderRoute: typeof AuthenticatedStudioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/_authenticated/editor/$projectId': {
       id: '/_authenticated/editor/$projectId'
@@ -538,21 +677,37 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AuthRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   ChangelogRoute: ChangelogRoute,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
+  FeaturesRoute: FeaturesRoute,
   FeedRoute: FeedRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LegalRoute: LegalRoute,
+  LoginRoute: LoginRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
   OnboardingRoute: OnboardingRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
   ApiPublicFapshiWebhookRoute: ApiPublicFapshiWebhookRoute,
   ApiPublicSunoCallbackRoute: ApiPublicSunoCallbackRoute,
 }

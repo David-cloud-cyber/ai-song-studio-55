@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
+import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { buildAuthReturnUrl, getSafeAuthDestination } from "@/lib/auth-redirect";
+import { cycleLabel, formatXaf, getPriceXaf, getPricingPlan } from "@/lib/pricing";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -17,12 +19,8 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Connexion · Loopster" },
-      {
-        name: "description",
-        content:
-          "Connectez-vous à votre studio de création musicale IA — email, mot de passe ou Google.",
-      },
+      { title: "Connexion — Loopster" },
+      { name: "description", content: "Rejoins ton studio Loopster." },
     ],
   }),
   component: AuthPage,
@@ -30,33 +28,24 @@ export const Route = createFileRoute("/auth")({
 
 function readAuthCallbackError() {
   if (typeof window === "undefined") return null;
-
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const description = query.get("error_description") ?? hash.get("error_description");
-  const code = query.get("error") ?? hash.get("error");
-  if (!description && !code) return null;
-
-  const normalized = `${code ?? ""} ${description ?? ""}`.toLowerCase();
-  if (normalized.includes("access_denied") || normalized.includes("cancel")) {
+  const raw =
+    `${query.get("error") ?? ""} ${query.get("error_description") ?? ""} ${hash.get("error") ?? ""} ${hash.get("error_description") ?? ""}`.toLowerCase();
+  if (!raw.trim()) return null;
+  if (raw.includes("access_denied") || raw.includes("cancel"))
     return {
       title: "Connexion interrompue",
-      description: "Pas de souci, tu peux réessayer ou continuer avec ton adresse email.",
+      description: "Pas de souci, tu peux réessayer ou continuer avec ton email.",
     };
-  }
-  if (
-    normalized.includes("provider") ||
-    normalized.includes("not enabled") ||
-    normalized.includes("not configured")
-  ) {
+  if (raw.includes("provider") || raw.includes("not enabled") || raw.includes("not configured"))
     return {
       title: "Google fait une petite pause",
-      description: "Tu peux continuer avec ton adresse email, sans perdre ton choix.",
+      description: "Tu peux continuer avec ton email, sans perdre ton choix.",
     };
-  }
   return {
-    title: "Impossible de terminer la connexion",
-    description: "Vérifie ton choix et réessaie dans un instant.",
+    title: "Connexion impossible",
+    description: "Vérifie tes informations et réessaie dans un instant.",
   };
 }
 
@@ -64,7 +53,7 @@ function clearAuthCallbackError() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   ["error", "error_code", "error_description"].forEach((key) => url.searchParams.delete(key));
-  if (url.hash.includes("error=") || url.hash.includes("error_description=")) url.hash = "";
+  if (url.hash.includes("error=")) url.hash = "";
   window.history.replaceState({}, document.title, url.toString());
 }
 
@@ -77,52 +66,52 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const routedRef = useRef(false);
-
   const destination = getSafeAuthDestination(search.redirect);
+  const selectedPlan =
+    search.plan === "pro" || search.plan === "premier" ? getPricingPlan(search.plan) : null;
+  const selectedCycle = search.cycle ?? "monthly";
 
   const goAfterAuth = useCallback(() => {
     if (routedRef.current) return;
     routedRef.current = true;
-    if (search.plan === "pro" || search.plan === "premier") {
+    if (selectedPlan) {
       navigate({
         to: "/credits",
-        search: { plan: search.plan, cycle: search.cycle ?? "monthly" },
+        search: { plan: selectedPlan.id as "pro" | "premier", cycle: selectedCycle },
       });
-      return;
+    } else {
+      navigate({ to: destination as "/library" });
     }
-    navigate({ to: destination as "/library" });
-  }, [destination, navigate, search.cycle, search.plan]);
+  }, [destination, navigate, selectedCycle, selectedPlan]);
 
   useEffect(() => {
-    let cancelled = false;
     const callbackError = readAuthCallbackError();
     if (callbackError) {
       toast.error(callbackError.title, { description: callbackError.description });
       clearAuthCallbackError();
     }
-
-    const handleSession = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
+    let cancelled = false;
+    const handleSession = (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"],
+    ) => {
       if (cancelled || !session) return;
       window.setTimeout(() => {
         if (!cancelled) goAfterAuth();
       }, 0);
     };
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      handleSession(data.session);
-    });
-
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) =>
+      handleSession(session),
+    );
+    supabase.auth.getSession().then(({ data }) => handleSession(data.session));
     return () => {
       cancelled = true;
-      authListener.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, [goAfterAuth]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
     setBusy(true);
     trackEvent("signup_started", { mode });
     try {
@@ -133,7 +122,7 @@ function AuthPage() {
           }),
         });
         if (error) throw error;
-        toast.success("Email envoyé", { description: "Vérifie ta boîte mail pour continuer." });
+        toast.success("Lien envoyé", { description: "Vérifie ta boîte mail pour continuer." });
         setMode("signin");
         return;
       }
@@ -152,13 +141,12 @@ function AuthPage() {
         if (error) throw error;
         trackEvent("signup_completed", { plan: search.plan });
         if (data.session) {
-          toast.success("Bienvenue dans Loopster", { description: "Ton studio est prêt." });
+          toast.success("Bienvenue dans Loopster", { description: "Ton espace est prêt." });
           goAfterAuth();
-        } else {
+        } else
           toast.success("Compte créé", {
             description: "Vérifie ta boîte mail pour confirmer ton adresse.",
           });
-        }
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -166,37 +154,33 @@ function AuthPage() {
       goAfterAuth();
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
-      if (message.includes("invalid login") || message.includes("invalid credentials")) {
+      if (message.includes("invalid login") || message.includes("invalid credentials"))
         toast.error("Vérifie tes identifiants", {
-          description: "Vérifie ton adresse email et ton mot de passe, puis réessaie.",
+          description: "Vérifie ton email et ton mot de passe, puis réessaie.",
         });
-      } else if (message.includes("confirm") || message.includes("verified")) {
-        toast.error("Adresse email à confirmer", {
-          description: "Un lien de confirmation t'attend dans ta boîte mail.",
+      else if (message.includes("confirm") || message.includes("verified"))
+        toast.error("Adresse à confirmer", {
+          description: "Un lien de confirmation t’attend dans ta boîte mail.",
         });
-      } else if (message.includes("already registered") || message.includes("already exists")) {
+      else if (message.includes("already registered") || message.includes("already exists"))
         toast.error("Cette adresse est déjà utilisée", {
           description: "Essaie de te connecter ou récupère ton mot de passe.",
         });
-      } else if (message.includes("rate limit") || message.includes("too many")) {
+      else if (message.includes("rate limit") || message.includes("too many"))
         toast.error("On ralentit juste un peu", {
-          description: "Trop de tentatives rapprochées. Attends un moment puis réessaie.",
+          description: "Attends un moment puis réessaie.",
         });
-      } else if (message.includes("redirect") || message.includes("origin")) {
-        toast.error("Retour de connexion indisponible", {
-          description: "Le lien de retour doit encore être configuré. Essaie avec ton email.",
-        });
-      } else {
-        toast.error("Oups, petit contretemps", {
+      else
+        toast.error("Petit contretemps", {
           description: "On réessaie ? Tes informations sont toujours là.",
         });
-      }
     } finally {
       setBusy(false);
     }
   };
 
   const google = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -208,74 +192,81 @@ function AuthPage() {
           }),
         },
       });
-
       if (error) {
         const message = error.message.toLowerCase();
-        const googleNotReady =
+        const unavailable =
           message.includes("provider") ||
           message.includes("unsupported") ||
           message.includes("not enabled") ||
           message.includes("not configured");
-
-        toast.error(googleNotReady ? "Google fait une petite pause" : "Connexion interrompue", {
-          description: googleNotReady
-            ? "Tu peux continuer avec ton adresse email, sans perdre ton choix."
-            : "Pas de souci, tu peux retenter quand tu veux.",
+        toast.error(unavailable ? "Google fait une petite pause" : "Connexion interrompue", {
+          description: unavailable
+            ? "Tu peux continuer avec ton email, sans perdre ton choix."
+            : "Tu peux retenter quand tu veux.",
         });
       }
     } catch {
-      toast.error("Connexion interrompue", {
-        description: "Pas de souci, tu peux retenter quand tu veux.",
-      });
+      toast.error("Connexion interrompue", { description: "Tu peux retenter quand tu veux." });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-5">
-      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(34,211,238,0.14),transparent_75%)]" />
-      <div className="w-full max-w-sm">
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2">
-          <span className="grid size-9 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
-            <span className="size-3 rotate-45 rounded-[3px] bg-background" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">Loopster</span>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 sm:px-6">
+      <div className="w-full max-w-md">
+        <Link to="/" className="mb-8 flex justify-center">
+          <LoopsterLogo className="h-9" imageClassName="h-9 w-auto" />
         </Link>
-
-        <div className="rounded-3xl border border-white/10 bg-surface/80 p-6 backdrop-blur-xl">
-          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
-            {mode === "signup" ? "Inscription" : mode === "forgot" ? "Mot de passe" : "Connexion"}
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {mode === "signup"
-              ? "Créez votre studio"
-              : mode === "forgot"
-                ? "Réinitialiser"
-                : "Ravi de vous revoir"}
-          </h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            {mode === "signup"
-              ? "80 crédits offerts chaque jour."
-              : mode === "forgot"
-                ? "Recevez un lien par email."
-                : "Reprenez votre dernière session."}
+        <div className="rounded-3xl border border-border bg-surface p-5 sm:p-7">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
+            {mode === "signup" ? "Inscription" : mode === "forgot" ? "Récupération" : "Connexion"}
           </p>
-
-          {search.plan && search.plan !== "free" && (
-            <div className="mt-4 rounded-xl border border-neon/20 bg-neon/5 px-3 py-2 text-center text-xs text-zinc-300">
-              Ton choix est gardé. Après connexion, tu verras le récapitulatif de la formule {search.plan === "pro" ? "Pro" : "Premier"}.
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+            {mode === "signup"
+              ? "Crée ton espace"
+              : mode === "forgot"
+                ? "Retrouve ton accès"
+                : "Ravi de te revoir"}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {mode === "signup"
+              ? "80 crédits offerts chaque jour pour commencer."
+              : mode === "forgot"
+                ? "Un lien simple sera envoyé à ton adresse."
+                : "Reprends ta prochaine création là où tu l’as laissée."}
+          </p>
+          {selectedPlan && (
+            <div className="mt-4 rounded-2xl border border-primary/25 bg-primary/[0.06] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                    Ton choix est gardé
+                  </p>
+                  <p className="mt-1 font-semibold">Loopster {selectedPlan.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {selectedPlan.creationsLabel}
+                  </p>
+                </div>
+                <div className="text-right text-sm font-semibold">
+                  {formatXaf(getPriceXaf(selectedPlan, selectedCycle))}
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    / {cycleLabel(selectedCycle)}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
-
           <form onSubmit={submit} className="mt-6 space-y-3">
             {mode === "signup" && (
               <Field
                 icon={<Sparkles className="size-4" />}
                 type="text"
-                placeholder="Nom d'artiste"
+                placeholder="Nom d’artiste"
                 value={displayName}
                 onChange={setDisplayName}
+                autoComplete="name"
+                required
               />
             )}
             <Field
@@ -283,7 +274,7 @@ function AuthPage() {
               type="email"
               placeholder="Email"
               value={email}
-      onChange={setEmail}
+              onChange={setEmail}
               autoComplete="email"
               required
             />
@@ -299,11 +290,10 @@ function AuthPage() {
                 required
               />
             )}
-
             <button
               type="submit"
               disabled={busy}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-neon py-3 text-sm font-semibold text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-50"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -311,43 +301,53 @@ function AuthPage() {
                 <ArrowRight className="size-4" />
               )}
               {mode === "signup"
-                ? "Créer le compte"
+                ? "Créer mon compte"
                 : mode === "forgot"
                   ? "Envoyer le lien"
                   : "Se connecter"}
             </button>
           </form>
-
           {mode !== "forgot" && (
             <>
               <div className="my-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-white/5" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+                <div className="h-px flex-1 bg-border-subtle" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   ou
                 </span>
-                <div className="h-px flex-1 bg-white/5" />
+                <div className="h-px flex-1 bg-border-subtle" />
               </div>
               <button
+                type="button"
                 onClick={google}
                 disabled={busy}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-foreground hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-50"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle py-3 text-sm font-medium hover:bg-surface-elevated disabled:opacity-50"
               >
                 <GoogleIcon />
                 Continuer avec Google
               </button>
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Si Google n’est pas disponible, continue simplement avec ton email.
+              </p>
             </>
           )}
-
-          <div className="mt-6 space-y-2 text-center text-xs text-zinc-500">
+          <div className="mt-6 space-y-2 text-center text-xs text-muted-foreground">
             {mode === "signin" && (
               <>
-                <button onClick={() => setMode("forgot")} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon hover:text-neon">
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="hover:text-primary"
+                >
                   Mot de passe oublié ?
                 </button>
                 <div>
-                  Pas de compte ?{" "}
-                  <button onClick={() => setMode("signup")} className="font-semibold text-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon">
-                    S'inscrire
+                  Pas encore de compte ?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("signup")}
+                    className="font-semibold text-primary"
+                  >
+                    S’inscrire
                   </button>
                 </div>
               </>
@@ -355,13 +355,21 @@ function AuthPage() {
             {mode === "signup" && (
               <div>
                 Déjà inscrit ?{" "}
-                <button onClick={() => setMode("signin")} className="font-semibold text-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon">
+                <button
+                  type="button"
+                  onClick={() => setMode("signin")}
+                  className="font-semibold text-primary"
+                >
                   Se connecter
                 </button>
               </div>
             )}
             {mode === "forgot" && (
-              <button onClick={() => setMode("signin")} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon hover:text-neon">
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className="hover:text-primary"
+              >
                 ← Retour à la connexion
               </button>
             )}
@@ -382,28 +390,28 @@ function Field({
   minLength,
   autoComplete,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   type: string;
   placeholder: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   required?: boolean;
   minLength?: number;
   autoComplete?: string;
 }) {
   return (
-    <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-background/40 px-3 py-2.5 focus-within:border-neon/60 focus-within:ring-2 focus-within:ring-neon/20">
-      <span className="text-zinc-500">{icon}</span>
+    <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background/40 px-3 py-2.5 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15">
+      <span className="text-muted-foreground">{icon}</span>
       <input
         type={type}
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         required={required}
         minLength={minLength}
         autoComplete={autoComplete}
         aria-label={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-600 focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
       />
     </label>
   );

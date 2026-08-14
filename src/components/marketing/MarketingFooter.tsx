@@ -1,79 +1,75 @@
 import { Link } from "@tanstack/react-router";
 import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 
-const cols = [
+const columns = [
   {
     title: "Produit",
     items: [
-      { label: "Fonctionnalités", href: "/#features" },
-      { label: "Tarifs", href: "/#pricing" },
-      { label: "Templates", href: "/templates" },
-      { label: "Feed", href: "/feed" },
+      { label: "Fonctionnalités", to: "/features" },
+      { label: "Tarifs", to: "/pricing" },
+      { label: "Templates", to: "/templates" },
+      { label: "Galerie", href: "/#gallery" },
     ],
   },
   {
     title: "Ressources",
     items: [
-      { label: "Guide de démarrage", href: "/#how" },
+      { label: "Comment ça marche", href: "/#how" },
       { label: "FAQ", href: "/#faq" },
-      { label: "Changelog", href: "/changelog" },
-      { label: "Contact", href: "/contact" },
+      { label: "Nouveautés", to: "/changelog" },
+      { label: "Contact", to: "/contact" },
     ],
   },
   {
     title: "Légal",
     items: [
-      { label: "Centre Légal", href: "/legal" },
-      { label: "Conditions", href: "/terms" },
-      { label: "Confidentialité", href: "/privacy" },
-      { label: "Cookies", href: "/cookies" },
-      { label: "Mentions légales", href: "/mentions-legales" },
+      { label: "Centre légal", to: "/legal" },
+      { label: "Conditions", to: "/terms" },
+      { label: "Confidentialité", to: "/privacy" },
+      { label: "Cookies", to: "/cookies" },
     ],
   },
-];
+] as const;
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-white/5 bg-background">
+    <footer className="border-t border-border-subtle bg-background">
       <div className="mx-auto max-w-7xl px-5 py-14 md:px-8 md:py-20">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
-            <Link to="/" className="flex items-center gap-2">
-              <span className="grid size-8 place-items-center rounded-full bg-neon shadow-[0_0_18px_rgba(34,211,238,0.55)]">
-                <span className="size-3 rotate-45 rounded-[3px] bg-background" />
-              </span>
+            <Link to="/" className="inline-flex items-center">
               <LoopsterLogo className="h-8" imageClassName="h-8 w-auto" />
             </Link>
-            <p className="mt-4 max-w-xs text-sm text-zinc-500">
-              Le studio de création musicale IA pour les artistes indépendants. Une idée devient
-              un morceau, en quelques étapes.
+            <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
+              Le studio musical IA pour transformer une idée en morceau, puis lui donner la forme
+              qui te ressemble.
             </p>
-            <div className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
-              Bêta ouverte · 2026
-            </div>
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
+              Loopster · création libre
+            </p>
           </div>
 
-          {cols.map((c) => (
-            <div key={c.title}>
-              <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                {c.title}
+          {columns.map((column) => (
+            <div key={column.title}>
+              <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {column.title}
               </div>
               <ul className="space-y-2.5">
-                {c.items.map((it) => (
-                  <li key={it.label}>
-                    {it.href.startsWith("/") && !it.href.includes("#") ? (
+                {column.items.map((item) => (
+                  <li key={item.label}>
+                    {"to" in item ? (
                       <Link
-                        to={it.href}
-                        className="text-sm text-zinc-300 transition-colors hover:text-neon"
+                        to={item.to}
+                        className="text-sm text-muted-foreground transition-colors hover:text-primary"
                       >
-                        {it.label}
+                        {item.label}
                       </Link>
                     ) : (
                       <a
-                        href={it.href}
-                        className="text-sm text-zinc-300 transition-colors hover:text-neon"
+                        href={item.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-primary"
                       >
-                        {it.label}
+                        {item.label}
                       </a>
                     )}
                   </li>
@@ -83,22 +79,9 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/5 pt-6 md:flex-row md:items-center">
-          <span className="text-xs text-zinc-500">© 2026 Loopster. Tous droits réservés.</span>
-          <div className="flex items-center gap-4 text-xs text-zinc-500">
-            <a href="#" className="hover:text-neon">
-              Twitter
-            </a>
-            <a href="#" className="hover:text-neon">
-              Instagram
-            </a>
-            <a href="#" className="hover:text-neon">
-              TikTok
-            </a>
-            <a href="#" className="hover:text-neon">
-              Discord
-            </a>
-          </div>
+        <div className="mt-12 flex flex-col justify-between gap-4 border-t border-border-subtle pt-6 text-xs text-muted-foreground md:flex-row md:items-center">
+          <span>© 2026 Loopster. Tous droits réservés.</span>
+          <span>Créé pour les artistes indépendants.</span>
         </div>
       </div>
     </footer>

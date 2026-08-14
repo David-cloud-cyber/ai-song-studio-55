@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { generateTrack, COSTS } from "@/lib/suno.functions";
 import { useProfile } from "@/hooks/use-profile";
-import { toast } from "sonner";
 
-const chips = ["Phonk", "Agressif", "120 BPM", "Voix F", "Cinématique", "Lo-fi", "Trap"];
+const chips = ["Phonk", "Agressif", "120 BPM", "Voix féminine", "Cinématique", "Lo-fi", "Trap"];
 
 export function PromptComposer({ compact = true }: { compact?: boolean }) {
   const [value, setValue] = useState("");
@@ -19,14 +19,11 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
   const { data: profile } = useProfile();
   const generate = useServerFn(generateTrack);
 
-  const toggle = (c: string) =>
-    setActive((a) => (a.includes(c) ? a.filter((x) => x !== c) : [...a, c]));
-
   const submit = async () => {
     const prompt = value.trim();
     if (!prompt || busy) return;
     if ((profile?.credits ?? 0) < COSTS.song) {
-      toast.error("Il te manque un peu d'élan", {
+      toast.error("Il te manque un peu d’élan", {
         description: `Il te faut encore ${COSTS.song} crédits pour lancer ce morceau.`,
       });
       return;
@@ -41,65 +38,83 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
           style: active.join(", "),
           genre: active[0],
           mood: active[1],
-          voice: active.includes("Voix F") ? "Voix féminine" : undefined,
+          voice: active.includes("Voix féminine") ? "Voix féminine" : undefined,
           instrumental: false,
           customMode: true,
           model: "V4_5",
         },
       });
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
-      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["studio-projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["latest-player-project"] }),
+      ]);
       setValue("");
       navigate({ to: "/library/$projectId", params: { projectId: result.projectId } });
     } catch {
-      toast.error("Le morceau fait une petite pause", {
-        description: "On retente dans un instant ?",
-      });
+      toast.error("Le morceau fait une petite pause", { description: "Réessaie dans un instant." });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="pointer-events-auto overflow-hidden rounded-2xl border border-white/10 bg-surface/95 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl">
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-white/5 px-3 py-2.5">
-        {chips.map((c) => {
-          const on = active.includes(c);
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+      className="pointer-events-auto overflow-hidden rounded-2xl border border-border bg-surface/95 backdrop-blur-xl"
+    >
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border-subtle px-3 py-2.5">
+        {chips.map((chip) => {
+          const selected = active.includes(chip);
           return (
             <button
-              key={c}
-              onClick={() => toggle(c)}
+              key={chip}
+              type="button"
+              onClick={() =>
+                setActive((current) =>
+                  selected ? current.filter((item) => item !== chip) : [...current, chip],
+                )
+              }
               className={cn(
-                "shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
-                on
-                  ? "border-neon/40 bg-neon/10 text-neon"
-                  : "border-white/5 bg-white/[0.03] text-zinc-400 hover:text-zinc-200",
+                "shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em]",
+                selected
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border-subtle bg-surface-subtle text-muted-foreground hover:text-foreground",
               )}
             >
-              {c}
+              {chip}
             </button>
           );
         })}
       </div>
       <div className="flex items-center gap-2 p-2.5">
-        <Sparkles className="ml-1 size-4 shrink-0 text-neon/70" />
+        {busy ? (
+          <Loader2 className="ml-1 size-4 shrink-0 animate-spin text-primary" aria-hidden />
+        ) : (
+          <Sparkles className="ml-1 size-4 shrink-0 text-primary" aria-hidden />
+        )}
         <input
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(event) => setValue(event.target.value)}
           placeholder={
-            compact ? "Décris ton prochain hit…" : "Décris le morceau, le clip, le mood…"
+            compact ? "Décris ton prochain morceau…" : "Décris le morceau, le clip ou l’ambiance…"
           }
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-600 focus:outline-none"
+          aria-label="Décris ton prochain morceau"
+          className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <button
-          onClick={() => void submit()}
+          type="submit"
           disabled={!value.trim() || busy || (profile?.credits ?? 0) < COSTS.song}
-          className="neon-pulse grid size-9 shrink-0 place-items-center rounded-xl bg-neon text-background disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Générer"
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label={busy ? "Création en cours" : "Créer le morceau"}
         >
           <ArrowUp className="size-4" strokeWidth={2.6} />
         </button>
       </div>
-    </div>
+    </form>
   );
 }

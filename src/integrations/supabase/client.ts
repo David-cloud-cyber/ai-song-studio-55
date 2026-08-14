@@ -37,51 +37,7 @@ function createSupabaseClient() {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    console.warn("[Supabase] Missing environment variables; operating with mock Supabase client.");
-    const mockUser = {
-      id: "mock-user-id",
-      email: "jordan@example.com",
-      user_metadata: { display_name: "Jordan Doe" },
-      app_metadata: {},
-      aud: "authenticated",
-      created_at: new Date().toISOString(),
-    };
-    const mockSession = {
-      access_token: "mock-access-token",
-      token_type: "bearer",
-      expires_in: 3600,
-      refresh_token: "mock-refresh-token",
-      user: mockUser,
-    };
-    return {
-      auth: {
-        getUser: async () => ({ data: { user: mockUser }, error: null }),
-        getSession: async () => ({ data: { session: mockSession }, error: null }),
-        onAuthStateChange: (cb: (event: string, session: unknown) => void) => {
-          setTimeout(() => cb("SIGNED_IN", mockSession), 0);
-          return { data: { subscription: { unsubscribe: () => {} } } };
-        },
-        signInWithPassword: async () => ({
-          data: { user: mockUser, session: mockSession },
-          error: null,
-        }),
-        signUp: async () => ({ data: { user: mockUser, session: mockSession }, error: null }),
-        signOut: async () => ({ error: null }),
-        resetPasswordForEmail: async () => ({ error: null }),
-      },
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            single: async () => ({ data: null, error: null }),
-            then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
-          }),
-          then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
-        }),
-        insert: async () => ({ data: null, error: null }),
-        update: async () => ({ data: null, error: null }),
-        delete: async () => ({ data: null, error: null }),
-      }),
-    } as unknown as ReturnType<typeof createClient<Database>>;
+    throw new Error("Supabase authentication is not configured.");
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {

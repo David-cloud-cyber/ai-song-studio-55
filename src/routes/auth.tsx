@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sparkles, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
+import { buildAuthReturnUrl, getSafeAuthDestination } from "@/lib/auth-redirect";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -27,6 +28,46 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+function readAuthCallbackError() {
+  if (typeof window === "undefined") return null;
+
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const description = query.get("error_description") ?? hash.get("error_description");
+  const code = query.get("error") ?? hash.get("error");
+  if (!description && !code) return null;
+
+  const normalized = `${code ?? ""} ${description ?? ""}`.toLowerCase();
+  if (normalized.includes("access_denied") || normalized.includes("cancel")) {
+    return {
+      title: "Connexion interrompue",
+      description: "Pas de souci, tu peux réessayer ou continuer avec ton adresse email.",
+    };
+  }
+  if (
+    normalized.includes("provider") ||
+    normalized.includes("not enabled") ||
+    normalized.includes("not configured")
+  ) {
+    return {
+      title: "Google fait une petite pause",
+      description: "Tu peux continuer avec ton adresse email, sans perdre ton choix.",
+    };
+  }
+  return {
+    title: "Impossible de terminer la connexion",
+    description: "Vérifie ton choix et réessaie dans un instant.",
+  };
+}
+
+function clearAuthCallbackError() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  ["error", "error_code", "error_description"].forEach((key) => url.searchParams.delete(key));
+  if (url.hash.includes("error=") || url.hash.includes("error_description=")) url.hash = "";
+  window.history.replaceState({}, document.title, url.toString());
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
@@ -35,8 +76,13 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
+  const routedRef = useRef(false);
 
-  const goAfterAuth = () => {
+  const destination = getSafeAuthDestination(search.redirect);
+
+  const goAfterAuth = useCallback(() => {
+    if (routedRef.current) return;
+    routedRef.current = true;
     if (search.plan === "pro" || search.plan === "premier") {
       navigate({
         to: "/credits",
@@ -44,20 +90,36 @@ function AuthPage() {
       });
       return;
     }
-    navigate({ to: (search.redirect as "/library") ?? "/library" });
-  };
+    navigate({ to: destination as "/library" });
+  }, [destination, navigate, search.cycle, search.plan]);
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled && data.user) {
-        goAfterAuth();
-      }
+    const callbackError = readAuthCallbackError();
+    if (callbackError) {
+      toast.error(callbackError.title, { description: callbackError.description });
+      clearAuthCallbackError();
+    }
+
+    const handleSession = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
+      if (cancelled || !session) return;
+      window.setTimeout(() => {
+        if (!cancelled) goAfterAuth();
+      }, 0);
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
     });
+    supabase.auth.getSession().then(({ data }) => {
+      handleSession(data.session);
+    });
+
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
-  }, [navigate, search.plan, search.cycle, search.redirect]);
+  }, [goAfterAuth]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +128,9 @@ function AuthPage() {
     try {
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: buildAuthReturnUrl(window.location.origin, destination, {
+            path: "/reset-password",
+          }),
         });
         if (error) throw error;
         toast.success("Email envoyé", { description: "Vérifie ta boîte mail pour continuer." });
@@ -78,7 +142,10 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: buildAuthReturnUrl(window.location.origin, destination, {
+              plan: search.plan,
+              cycle: search.cycle,
+            }),
             data: { display_name: displayName || email.split("@")[0] },
           },
         });
@@ -111,6 +178,14 @@ function AuthPage() {
         toast.error("Cette adresse est déjà utilisée", {
           description: "Essaie de te connecter ou récupère ton mot de passe.",
         });
+      } else if (message.includes("rate limit") || message.includes("too many")) {
+        toast.error("On ralentit juste un peu", {
+          description: "Trop de tentatives rapprochées. Attends un moment puis réessaie.",
+        });
+      } else if (message.includes("redirect") || message.includes("origin")) {
+        toast.error("Retour de connexion indisponible", {
+          description: "Le lien de retour doit encore être configuré. Essaie avec ton email.",
+        });
       } else {
         toast.error("Oups, petit contretemps", {
           description: "On réessaie ? Tes informations sont toujours là.",
@@ -124,16 +199,13 @@ function AuthPage() {
   const google = async () => {
     setBusy(true);
     try {
-      const destination = (search.redirect as "/library" | undefined) ?? "/library";
-      const redirectTo = new URL("/auth", window.location.origin);
-      redirectTo.searchParams.set("redirect", destination);
-      if (search.plan) redirectTo.searchParams.set("plan", search.plan);
-      if (search.cycle) redirectTo.searchParams.set("cycle", search.cycle);
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: redirectTo.toString(),
+          redirectTo: buildAuthReturnUrl(window.location.origin, destination, {
+            plan: search.plan,
+            cycle: search.cycle,
+          }),
         },
       });
 
@@ -211,7 +283,8 @@ function AuthPage() {
               type="email"
               placeholder="Email"
               value={email}
-              onChange={setEmail}
+      onChange={setEmail}
+              autoComplete="email"
               required
             />
             {mode !== "forgot" && (
@@ -221,7 +294,8 @@ function AuthPage() {
                 placeholder="Mot de passe"
                 value={password}
                 onChange={setPassword}
-                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                minLength={mode === "signup" ? 8 : undefined}
                 required
               />
             )}
@@ -306,6 +380,7 @@ function Field({
   onChange,
   required,
   minLength,
+  autoComplete,
 }: {
   icon: React.ReactNode;
   type: string;
@@ -314,6 +389,7 @@ function Field({
   onChange: (v: string) => void;
   required?: boolean;
   minLength?: number;
+  autoComplete?: string;
 }) {
   return (
     <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-background/40 px-3 py-2.5 focus-within:border-neon/60 focus-within:ring-2 focus-within:ring-neon/20">
@@ -325,6 +401,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         minLength={minLength}
+        autoComplete={autoComplete}
         aria-label={placeholder}
         className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-600 focus:outline-none"
       />

@@ -37,19 +37,11 @@ function createSupabaseAdminClient() {
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn("[Supabase] Missing admin environment variables; returning mock admin client.");
-    return {
-      auth: {
-        admin: {
-          getUserById: async () => ({ data: null, error: null }),
-        },
-      },
-      from: () => ({
-        select: () => ({
-          eq: () => ({ single: async () => ({ data: null, error: null }) }),
-        }),
-      }),
-    } as unknown as ReturnType<typeof createClient<Database>>;
+    const error = new Error("Supabase server access is not configured.") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 503;
+    throw error;
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {

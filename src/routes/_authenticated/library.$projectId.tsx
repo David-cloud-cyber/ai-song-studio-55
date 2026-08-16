@@ -183,7 +183,7 @@ function ProjectDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("generation_jobs")
-        .select("status,kind,error_message,created_at,credits_spent")
+        .select("status,kind,error_message,created_at,credits_spent,credits_refunded")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -193,6 +193,7 @@ function ProjectDetail() {
         error_message: string | null;
         created_at: string;
         credits_spent: number;
+        credits_refunded: number;
       }>;
     },
     refetchInterval: (q) =>
@@ -884,6 +885,30 @@ function ProjectDetail() {
                   timeStyle: "short",
                 })}
               </InfoCard>
+              <div className="rounded-2xl border border-white/5 bg-surface p-4 sm:col-span-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                  <History className="size-4" />
+                  <span>Historique des traitements</span>
+                </div>
+                {jobs.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">Aucun traitement enregistré.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {jobs.slice(0, 6).map((job) => (
+                      <li
+                        key={`${job.kind}-${job.created_at}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-white/5 px-3 py-2 text-xs"
+                      >
+                        <span className="min-w-0 truncate text-zinc-300">{jobLabel(job.kind)}</span>
+                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {jobStatusLabel(job.status)}
+                          {job.credits_refunded > 0 ? " · crédits rendus" : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           )}
 
@@ -921,8 +946,18 @@ function ProjectDetail() {
                 </div>
               )}
               {stems?.status === "failed" && (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-                  Les pistes n'ont pas fini leur petite danse. Réessaie dans un instant.
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+                  <span>
+                    Les pistes n'ont pas fini leur petite danse. Tes crédits ont été rendus.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={doStems}
+                    disabled={busy !== null || !project.suno_audio_id}
+                    className="min-h-10 rounded-xl border border-rose-300/30 px-3 text-xs font-semibold disabled:opacity-50"
+                  >
+                    Réessayer
+                  </button>
                 </div>
               )}
               {stems?.vocalUrl && (
@@ -1093,4 +1128,26 @@ function InfoCard({
       </p>
     </div>
   );
+}
+
+function jobLabel(kind: string) {
+  const labels: Record<string, string> = {
+    song: "Création du morceau",
+    instrumental: "Création instrumentale",
+    extend: "Prolongement",
+    stems: "Séparation des pistes",
+    vocals: "Ajout de voix",
+    lyrics: "Paroles",
+    wav: "Export WAV",
+    video: "Clip vidéo",
+    cover: "Pochette",
+  };
+  return labels[kind] ?? "Traitement créatif";
+}
+
+function jobStatusLabel(status: string) {
+  if (status === "completed") return "Terminé";
+  if (status === "failed") return "Échoué";
+  if (status === "processing" || status === "pending") return "En cours";
+  return "Mis à jour";
 }

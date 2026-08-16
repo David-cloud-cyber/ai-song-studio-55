@@ -98,6 +98,8 @@ export function DesktopSidebar({
             <Link
               key={item.to}
               to={item.to as never}
+              title={collapsed ? item.label : undefined}
+              aria-label={collapsed ? item.label : undefined}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
                 collapsed && "justify-center px-0",

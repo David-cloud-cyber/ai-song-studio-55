@@ -465,6 +465,10 @@ export type Database = {
         Args: { _amount: number; _project_id?: string; _reason: string; _user_id: string };
         Returns: number;
       };
+      refund_generation_job: {
+        Args: { _job_id: string; _reason: string };
+        Returns: number;
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];

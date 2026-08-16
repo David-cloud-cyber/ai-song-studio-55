@@ -100,25 +100,20 @@ async function claimGenerationJob(
 }
 
 async function refundGeneration(
-  supabase: AuthedClient,
-  userId: string,
-  amount: number,
-  projectId: string,
+  _supabase: AuthedClient,
+  _userId: string,
+  _amount: number,
+  _projectId: string,
   jobId: string,
   reason: string,
 ) {
-  if (amount <= 0) return;
-  const { error } = await supabase.rpc("refund_credits", {
-    _user_id: userId,
-    _amount: amount,
+  if (_amount <= 0) return;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin.rpc("refund_generation_job", {
+    _job_id: jobId,
     _reason: reason,
-    _project_id: projectId,
   });
   if (error) throw error;
-  await updateGenerationJob(jobId, {
-    credits_refunded: amount,
-    refunded_at: new Date().toISOString(),
-  });
 }
 
 async function refundJobIfNeeded(
@@ -133,7 +128,7 @@ async function refundJobIfNeeded(
     .eq("suno_task_id", taskId)
     .maybeSingle();
   if (error) throw error;
-  if (!job || job.credits_spent <= 0 || job.credits_refunded > 0) return;
+  if (!job || job.credits_spent <= 0 || job.credits_refunded >= job.credits_spent) return;
   await refundGeneration(
     supabaseAdmin,
     job.user_id,
@@ -1288,4 +1283,91 @@ export const syncProject = createServerFn({ method: "POST" })
     }
 
     return { changed, status: project.status };
+  });
+
+/** Récupère les créations restées bloquées sans réponse du fournisseur. */
+export const recoverStaleGenerations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({}).parse(input))
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: jobs, error: jobsError } = await supabase
+      .from("generation_jobs")
+      .select("id,project_id,credits_spent,credits_refunded,status")
+      .eq("user_id", userId)
+      .in("status", ["pending", "processing"])
+      .lt("updated_at", cutoff)
+      .limit(20);
+    if (jobsError) throw jobsError;
+
+    let recovered = 0;
+    for (const job of jobs ?? []) {
+      const { data: claimed, error: claimError } = await supabaseAdmin
+        .from("generation_jobs")
+        .update({
+          status: "failed",
+          error_message: "Le traitement a dépassé le temps prévu.",
+        })
+        .eq("id", job.id)
+        .in("status", ["pending", "processing"])
+        .select("id")
+        .maybeSingle();
+      if (claimError) throw claimError;
+      if (!claimed) continue;
+
+      const { error: refundError } = await supabaseAdmin.rpc("refund_generation_job", {
+        _job_id: job.id,
+        _reason: "Remboursement · création interrompue",
+      });
+      if (refundError) throw refundError;
+      if (job.project_id) {
+        await supabaseAdmin
+          .from("projects")
+          .update({
+            status: "draft",
+            progress: 0,
+            error_message: "La création a dépassé le temps prévu.",
+          })
+          .eq("id", job.project_id)
+          .eq("user_id", userId)
+          .eq("status", "rendering");
+      }
+      recovered += 1;
+    }
+
+    const { data: staleProjects, error: projectsError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "rendering")
+      .lt("updated_at", cutoff)
+      .limit(20);
+    if (projectsError) throw projectsError;
+
+    for (const project of staleProjects ?? []) {
+      const { data: activeJob } = await supabase
+        .from("generation_jobs")
+        .select("id")
+        .eq("project_id", project.id)
+        .in("status", ["pending", "processing"])
+        .limit(1)
+        .maybeSingle();
+      if (activeJob) continue;
+      await supabaseAdmin
+        .from("projects")
+        .update({
+          status: "draft",
+          progress: 0,
+          error_message: "La création a dépassé le temps prévu.",
+        })
+        .eq("id", project.id)
+        .eq("user_id", userId)
+        .eq("status", "rendering");
+      recovered += 1;
+    }
+
+    return { recovered };
   });

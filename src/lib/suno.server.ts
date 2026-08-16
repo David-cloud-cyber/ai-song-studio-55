@@ -46,15 +46,28 @@ async function sunoRequest<T>(
   path: string,
   init: { method: "GET" | "POST"; body?: unknown },
 ): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: init.method,
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: init.body ? JSON.stringify(init.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: init.method,
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: init.body ? JSON.stringify(init.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Le service musical met trop de temps à répondre.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const text = await res.text();
   let json: { code?: number; msg?: string; data?: unknown } = {};

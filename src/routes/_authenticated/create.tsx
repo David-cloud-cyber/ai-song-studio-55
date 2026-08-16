@@ -39,6 +39,12 @@ const MODELS = [
   { id: "V5", label: "v5", hint: "Qualité max" },
 ] as const;
 
+const STRUCTURES = [
+  { id: "Couplet · refrain", label: "Couplet · refrain" },
+  { id: "Intro · couplet · refrain · pont", label: "Intro · refrain · pont" },
+  { id: "Structure libre", label: "Structure libre" },
+] as const;
+
 export const Route = createFileRoute("/_authenticated/create")({
   validateSearch: z.object({
     template: z.string().optional(),
@@ -84,6 +90,7 @@ function CreatePage() {
   const [model, setModel] = useState<(typeof MODELS)[number]["id"]>("V4_5");
   const [duration, setDuration] = useState(180);
   const [bpm, setBpm] = useState(120);
+  const [structure, setStructure] = useState<(typeof STRUCTURES)[number]["id"]>(STRUCTURES[0].id);
   const [generating, setGenerating] = useState(false);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
 
@@ -142,7 +149,7 @@ function CreatePage() {
     }
     setGenerating(true);
     try {
-      const style = [genre, mood, `${bpm} BPM`, instrumental ? "instrumental" : voice]
+      const style = [genre, mood, `${bpm} BPM`, structure, instrumental ? "instrumental" : voice]
         .filter(Boolean)
         .join(", ");
 
@@ -348,6 +355,34 @@ function CreatePage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/5 bg-surface p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Sliders className="size-4 text-zinc-400" />
+              <span className="text-sm font-medium">Structure</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {STRUCTURES.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setStructure(option.id)}
+                  aria-pressed={structure === option.id}
+                  className={cn(
+                    "min-h-11 rounded-xl border px-3 py-2 text-left text-xs transition-colors",
+                    structure === option.id
+                      ? "border-neon/40 bg-neon/10 text-neon"
+                      : "border-white/5 bg-white/[0.03] text-zinc-400 hover:text-foreground",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-5 text-zinc-500">
+              La structure guide l’arrangement sans garantir une forme identique à chaque rendu.
+            </p>
           </div>
 
           <Select

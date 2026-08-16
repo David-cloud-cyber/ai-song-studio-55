@@ -53,6 +53,17 @@ type StemState = {
   instrumentalUrl?: string | null;
 };
 
+function friendlyError(value: string | null | undefined) {
+  const message = (value ?? "").toLowerCase();
+  if (message.includes("copyright") || message.includes("protég")) {
+    return "Essaie une description plus personnelle, sans reprendre des paroles connues.";
+  }
+  if (message.includes("trop de temps") || message.includes("timeout")) {
+    return "Le traitement a pris plus de temps que prévu. Tes crédits ont été rendus.";
+  }
+  return "Le traitement n’a pas abouti. Tes crédits ont été rendus si nécessaire.";
+}
+
 function EditorPage() {
   const { projectId } = Route.useParams();
   const { data: profile } = useProfile();
@@ -158,7 +169,7 @@ function EditorPage() {
       toast.success(success);
     } catch (error) {
       toast.error("Cette action n'a pas pu démarrer", {
-        description: error instanceof Error ? error.message : "Réessaie dans un instant.",
+        description: friendlyError(error instanceof Error ? error.message : null),
       });
     } finally {
       setBusy(null);
@@ -195,7 +206,7 @@ function EditorPage() {
         {project.error_message && (
           <div className="rounded-2xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger-foreground">
             <p className="font-semibold">Cette action n’a pas abouti.</p>
-            <p className="mt-1 text-danger-foreground/80">{project.error_message}</p>
+            <p className="mt-1 text-danger-foreground/80">{friendlyError(project.error_message)}</p>
             <Link
               to="/create"
               className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-danger/30 px-3 text-xs font-semibold text-danger-foreground"

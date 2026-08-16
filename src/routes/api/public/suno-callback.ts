@@ -80,22 +80,12 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         if (job?.status === "completed") return new Response("ok");
 
         const refundFailedJob = async () => {
-          if (!job || job.credits_spent <= 0 || job.credits_refunded > 0) return;
-          const { error: refundError } = await supabaseAdmin.rpc("refund_credits", {
-            _user_id: job.user_id,
-            _amount: job.credits_spent,
+          if (!job || job.credits_spent <= 0 || job.credits_refunded >= job.credits_spent) return;
+          const { error: refundError } = await supabaseAdmin.rpc("refund_generation_job", {
+            _job_id: job.id,
             _reason: "Remboursement · génération échouée",
-            _project_id: job.project_id ?? undefined,
           });
-          if (!refundError) {
-            await supabaseAdmin
-              .from("generation_jobs")
-              .update({
-                credits_refunded: job.credits_spent,
-                refunded_at: new Date().toISOString(),
-              })
-              .eq("id", job.id);
-          }
+          if (refundError) throw refundError;
         };
 
         if (job && isFailure) {

@@ -76,6 +76,7 @@ function Studio() {
       const { data, error } = await supabase
         .from("projects")
         .select("id,title,genre,duration_seconds,status,cover_gradient,created_at,progress")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(6);
       if (error) throw error;

@@ -7,6 +7,7 @@ import { LivePlayerBar } from "./LivePlayerBar";
 import { OnboardingGate } from "./OnboardingGate";
 import { PromptComposer } from "./PromptComposer";
 import { TopBar } from "./TopBar";
+import { useGenerationRecovery } from "@/hooks/use-generation-recovery";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isPublic = PUBLIC_ROUTES.some((route) =>
     route === "/" ? pathname === route : pathname.startsWith(route),
   );
+  useGenerationRecovery();
   useEffect(() => {
     setSidebarCollapsed(window.localStorage.getItem("loopster.sidebar.collapsed") === "true");
   }, []);
@@ -60,7 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <main
         className={
-          "mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:mr-0 md:max-w-none md:px-10 md:pb-40 md:pt-6 " +
+          "mx-auto w-full min-w-0 max-w-md md:mr-0 md:max-w-none md:px-10 md:pb-40 md:pt-6 " +
+          (hideComposer
+            ? "pb-[calc(8rem+env(safe-area-inset-bottom))] "
+            : "pb-[calc(16rem+env(safe-area-inset-bottom))] ") +
           (sidebarCollapsed
             ? "md:ml-[72px] md:w-[calc(100%_-_72px)]"
             : "md:ml-64 md:w-[calc(100%_-_16rem)]")

@@ -125,6 +125,7 @@ export function AudioPlayer({
             aria-valuemin={0}
             aria-valuemax={duration || 0}
             aria-valuenow={time}
+            aria-valuetext={`${fmt(time)} sur ${fmt(duration)}`}
             onClick={(e) => {
               const el = ref.current;
               if (!el || !duration) return;
@@ -135,9 +136,14 @@ export function AudioPlayer({
               const el = ref.current;
               if (!el || !duration) return;
               const step = e.shiftKey ? 10 : 5;
-              if (e.key === "ArrowRight")
+              if (e.key === "ArrowRight") {
+                e.preventDefault();
                 el.currentTime = Math.min(duration, el.currentTime + step);
-              if (e.key === "ArrowLeft") el.currentTime = Math.max(0, el.currentTime - step);
+              }
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                el.currentTime = Math.max(0, el.currentTime - step);
+              }
             }}
             className={cn(compact ? "h-8" : "h-10", "cursor-pointer")}
           >

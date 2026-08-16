@@ -23,6 +23,14 @@ import {
 } from "@/lib/suno.functions";
 import {
   ArrowLeft,
+  Archive,
+  CalendarDays,
+  Copy,
+  Edit3,
+  ExternalLink,
+  FileText,
+  History,
+  RotateCcw,
   Share2,
   Wand2,
   Heart,
@@ -76,6 +84,12 @@ type Project = {
   video_url: string | null;
   is_public: boolean;
   published_at: string | null;
+  archived_at: string | null;
+  parent_project_id: string | null;
+  voice: string | null;
+  style: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export const Route = createFileRoute("/_authenticated/library/$projectId")({
@@ -113,7 +127,17 @@ function formatDuration(sec: number | null) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const tabs = ["Audio", "Stems", "Paroles", "Pochette", "Exports"] as const;
+const tabs = [
+  "Résumé",
+  "Audio",
+  "Prompt",
+  "Paroles",
+  "Pistes",
+  "Pochette",
+  "Vidéo",
+  "Exports",
+  "Versions",
+] as const;
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
@@ -122,6 +146,9 @@ function ProjectDetail() {
     null | "extend" | "stems" | "vocals" | "instrumental" | "lyrics" | "wav" | "video" | "cover"
   >(null);
   const [publishing, setPublishing] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [archiving, setArchiving] = useState(false);
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const canDownload = isPaidPlan(profile);
@@ -155,11 +182,17 @@ function ProjectDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("generation_jobs")
-        .select("status,kind,error_message")
+        .select("status,kind,error_message,created_at,credits_spent")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Array<{ status: string; kind: string; error_message: string | null }>;
+      return data as Array<{
+        status: string;
+        kind: string;
+        error_message: string | null;
+        created_at: string;
+        credits_spent: number;
+      }>;
     },
     refetchInterval: (q) =>
       (q.state.data as Array<{ status: string }> | undefined)?.some(
@@ -167,6 +200,32 @@ function ProjectDetail() {
       )
         ? 5000
         : false,
+  });
+
+  const { data: versions = [] } = useQuery({
+    queryKey: ["project-versions", projectId, project?.parent_project_id],
+    enabled: Boolean(project),
+    queryFn: async () => {
+      const parentQuery = project?.parent_project_id
+        ? supabase
+            .from("projects")
+            .select("id,title,status,created_at,parent_project_id")
+            .eq("id", project.parent_project_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+      const childrenQuery = supabase
+        .from("projects")
+        .select("id,title,status,created_at,parent_project_id")
+        .eq("parent_project_id", projectId)
+        .order("created_at", { ascending: false });
+      const [parentResult, childrenResult] = await Promise.all([parentQuery, childrenQuery]);
+      if (parentResult.error) throw parentResult.error;
+      if (childrenResult.error) throw childrenResult.error;
+      return [
+        ...(parentResult.data ? [{ ...parentResult.data, relation: "parent" as const }] : []),
+        ...(childrenResult.data ?? []).map((item) => ({ ...item, relation: "variant" as const })),
+      ];
+    },
   });
 
   useEffect(() => {
@@ -216,7 +275,7 @@ function ProjectDetail() {
       await runStems({ data: { projectId: project.id, requestId: crypto.randomUUID() } });
       queryClient.invalidateQueries({ queryKey: ["project", project.id] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      setTab("Stems");
+      setTab("Pistes");
       toast.success("Les pistes se séparent !", {
         description: `${COSTS.stems} crédits utilisés.`,
       });
@@ -323,6 +382,50 @@ function ProjectDetail() {
     await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
   };
 
+  const saveTitle = async () => {
+    const title = titleDraft.trim();
+    if (!title || title === project.title) {
+      setEditingTitle(false);
+      return;
+    }
+    const { error } = await supabase.from("projects").update({ title }).eq("id", project.id);
+    if (error) {
+      toast.error("Le titre n'a pas pu être enregistré", {
+        description: "On retente dans un instant.",
+      });
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    setEditingTitle(false);
+    toast.success("Titre mis à jour");
+  };
+
+  const toggleArchive = async () => {
+    setArchiving(true);
+    const archived = !project.archived_at;
+    const { error } = await supabase
+      .from("projects")
+      .update({
+        archived_at: archived ? new Date().toISOString() : null,
+        is_public: archived ? false : project.is_public,
+        published_at: archived ? null : project.published_at,
+      })
+      .eq("id", project.id);
+    if (error) {
+      toast.error("Le projet n'a pas pu être déplacé", {
+        description: "On retente dans un instant.",
+      });
+    } else {
+      await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["public-creations"] });
+      toast.success(archived ? "Projet archivé" : "Projet restauré");
+      if (archived) window.location.href = "/library";
+    }
+    setArchiving(false);
+  };
+
   const togglePublic = async () => {
     if (publishing || project.status !== "ready" || !project.audio_url) return;
     setPublishing(true);
@@ -401,9 +504,39 @@ function ProjectDetail() {
                 {project.instrumental ? "Instrumentale" : (project.genre ?? "Projet")}
                 {project.model ? ` · ${project.model.replace("_", ".").toLowerCase()}` : ""}
               </div>
-              <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight">
-                {project.title}
-              </h1>
+              {editingTitle ? (
+                <form
+                  className="mt-1 flex min-w-0 items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveTitle();
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    onBlur={() => void saveTitle()}
+                    className="min-w-0 flex-1 rounded-lg border border-primary/40 bg-background px-2 py-1 text-xl font-semibold outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Nouveau titre du projet"
+                  />
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleDraft(project.title);
+                    setEditingTitle(true);
+                  }}
+                  className="group mt-1 flex max-w-full items-center gap-2 text-left"
+                  title="Renommer le projet"
+                >
+                  <h1 className="truncate text-2xl font-semibold tracking-tight">
+                    {project.title}
+                  </h1>
+                  <Edit3 className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              )}
               <p className="mt-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 {project.mood ?? "—"} · {formatDuration(project.duration_seconds)}
               </p>
@@ -416,6 +549,25 @@ function ProjectDetail() {
               <Heart className={cn("size-4", project.is_favorite && "fill-neon text-neon")} />
             </button>
           </div>
+
+          {project.archived_at && (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-foreground">
+              <span>Ce projet est archivé. Il n’apparaît plus dans la galerie.</span>
+              <button
+                type="button"
+                onClick={() => void toggleArchive()}
+                disabled={archiving}
+                className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-warning/30 px-3 text-xs font-semibold disabled:opacity-50"
+              >
+                {archiving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-3.5" />
+                )}
+                Restaurer
+              </button>
+            </div>
+          )}
 
           {project.status === "rendering" && (
             <div className="mt-4 rounded-2xl border border-neon/25 bg-neon/5 p-4">
@@ -471,7 +623,7 @@ function ProjectDetail() {
             </Link>
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <button
               onClick={doExtend}
               disabled={!project.suno_audio_id || busy !== null}
@@ -557,12 +709,37 @@ function ProjectDetail() {
               )}
               {project.is_public ? "Retirer de la galerie" : "Publier dans la galerie"}
             </button>
-            <Link
-              to="/create"
+            <a
+              href={`/create?sourceProjectId=${project.id}&mode=remix`}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
             >
               <Wand2 className="size-3.5" /> Remix
-            </Link>
+            </a>
+            <a
+              href={`/create?sourceProjectId=${project.id}&mode=recreate`}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
+            >
+              <Copy className="size-3.5" /> Recréer
+            </a>
+            <a
+              href={`/create?sourceProjectId=${project.id}&mode=variant`}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
+            >
+              <Sliders className="size-3.5" /> Variante
+            </a>
+            <button
+              type="button"
+              onClick={() => void toggleArchive()}
+              disabled={archiving}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-50"
+            >
+              {archiving ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Archive className="size-3.5" />
+              )}
+              {project.archived_at ? "Restaurer" : "Archiver"}
+            </button>
           </div>
 
           <div className="mt-2 grid grid-cols-3 gap-2">
@@ -623,6 +800,30 @@ function ProjectDetail() {
         </div>
 
         <div className="pt-5">
+          {tab === "Résumé" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoCard icon={<FileText className="size-4" />} label="Prompt original">
+                {project.prompt ?? "Aucun prompt enregistré."}
+              </InfoCard>
+              <InfoCard icon={<Music className="size-4" />} label="Style">
+                {project.style ??
+                  ([project.genre, project.mood, project.voice].filter(Boolean).join(" · ") || "—")}
+              </InfoCard>
+              <InfoCard icon={<CalendarDays className="size-4" />} label="Créé le">
+                {new Date(project.created_at).toLocaleString("fr-FR", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </InfoCard>
+              <InfoCard icon={<History className="size-4" />} label="Dernière mise à jour">
+                {new Date(project.updated_at).toLocaleString("fr-FR", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </InfoCard>
+            </div>
+          )}
+
           {tab === "Audio" && (
             <div className="space-y-3">
               {project.audio_url ? (
@@ -643,7 +844,13 @@ function ProjectDetail() {
             </div>
           )}
 
-          {tab === "Stems" && (
+          {tab === "Prompt" && (
+            <pre className="whitespace-pre-wrap rounded-2xl border border-white/5 bg-surface p-5 font-sans text-sm leading-relaxed text-zinc-300">
+              {project.prompt ?? "Aucun prompt enregistré pour ce projet."}
+            </pre>
+          )}
+
+          {tab === "Pistes" && (
             <div className="space-y-3">
               {stems?.status === "processing" && (
                 <div className="flex items-center gap-2 rounded-2xl border border-neon/25 bg-neon/5 p-4 text-sm text-neon">
@@ -682,11 +889,16 @@ function ProjectDetail() {
             </div>
           )}
 
-          {tab === "Paroles" && (
-            <pre className="whitespace-pre-wrap rounded-2xl border border-white/5 bg-surface p-4 font-sans text-sm leading-relaxed text-zinc-300">
-              {project.lyrics ?? project.prompt ?? "Aucune parole générée pour l'instant."}
-            </pre>
-          )}
+          {tab === "Paroles" &&
+            (project.lyrics ? (
+              <pre className="whitespace-pre-wrap rounded-2xl border border-white/5 bg-surface p-4 font-sans text-sm leading-relaxed text-zinc-300">
+                {project.lyrics}
+              </pre>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
+                Aucune parole générée pour l’instant. Utilise le bouton Paroles pour en créer.
+              </div>
+            ))}
 
           {tab === "Pochette" &&
             (cover ? (
@@ -698,6 +910,22 @@ function ProjectDetail() {
               />
             ) : (
               <CoverArt gradient={gradient} title={project.title} className="aspect-square" />
+            ))}
+
+          {tab === "Vidéo" &&
+            (project.video_url ? (
+              <video
+                controls
+                preload="metadata"
+                src={project.video_url}
+                className="w-full max-w-3xl rounded-2xl border border-white/10 bg-black"
+              >
+                Ton navigateur ne peut pas lire cette vidéo.
+              </video>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
+                La vidéo apparaîtra ici après son traitement.
+              </div>
             ))}
 
           {tab === "Exports" && (
@@ -748,8 +976,58 @@ function ProjectDetail() {
               )}
             </div>
           )}
+
+          {tab === "Versions" && (
+            <div className="space-y-3">
+              {versions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
+                  Les variantes et versions de ce projet apparaîtront ici.
+                </div>
+              ) : (
+                versions.map((version) => (
+                  <Link
+                    key={version.id}
+                    to="/library/$projectId"
+                    params={{ projectId: version.id }}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface p-4 hover:border-primary/40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{version.title}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {version.relation === "parent" ? "Projet d’origine" : "Version dérivée"} ·{" "}
+                        {version.status}
+                      </span>
+                    </span>
+                    <ExternalLink className="size-4 shrink-0 text-primary" />
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
     </PageTransition>
+  );
+}
+
+function InfoCard({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-surface p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">
+        {children}
+      </p>
+    </div>
   );
 }

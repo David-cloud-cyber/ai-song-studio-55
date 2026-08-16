@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useSession } from "@/hooks/use-session";
 import { useProfile } from "@/hooks/use-profile";
@@ -40,7 +40,11 @@ const MODELS = [
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/create")({
-  validateSearch: z.object({ template: z.string().optional() }),
+  validateSearch: z.object({
+    template: z.string().optional(),
+    sourceProjectId: z.string().uuid().optional(),
+    mode: z.enum(["remix", "recreate", "variant"]).optional(),
+  }),
   head: () => ({
     meta: [
       { title: "Créer · Loopster" },
@@ -83,6 +87,20 @@ function CreatePage() {
   const [generating, setGenerating] = useState(false);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
 
+  const { data: sourceProject } = useQuery({
+    queryKey: ["create-source-project", search.sourceProjectId],
+    enabled: Boolean(search.sourceProjectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,title,prompt,genre,mood,voice,instrumental,model,duration_seconds,style")
+        .eq("id", search.sourceProjectId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const template =
     templates.find((t) => t.id === search.template) ??
     templates.find((t) => t.id === "song") ??
@@ -91,6 +109,26 @@ function CreatePage() {
   useEffect(() => {
     setInstrumental(template.id === "instru");
   }, [template.id]);
+
+  useEffect(() => {
+    if (!sourceProject) return;
+    setTitle(
+      search.mode === "remix"
+        ? `${sourceProject.title} · remix`
+        : search.mode === "variant"
+          ? `${sourceProject.title} · variante`
+          : `${sourceProject.title} · recréation`,
+    );
+    setPrompt(sourceProject.prompt ?? "");
+    if (sourceProject.genre) setGenre(sourceProject.genre);
+    if (sourceProject.mood) setMood(sourceProject.mood);
+    if (sourceProject.voice) setVoice(sourceProject.voice);
+    setInstrumental(sourceProject.instrumental);
+    if (sourceProject.model && MODELS.some((model) => model.id === sourceProject.model)) {
+      setModel(sourceProject.model as (typeof MODELS)[number]["id"]);
+    }
+    if (sourceProject.duration_seconds) setDuration(sourceProject.duration_seconds);
+  }, [search.mode, sourceProject]);
   const cost = instrumental ? COSTS.instrumental : COSTS.song;
   const enough = (profile?.credits ?? 0) >= cost;
 
@@ -136,6 +174,7 @@ function CreatePage() {
             instrumental,
             model,
             coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+            parentProjectId: search.sourceProjectId,
             requestId: crypto.randomUUID(),
           },
         });
@@ -153,6 +192,7 @@ function CreatePage() {
             model,
             durationSeconds: duration,
             coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+            parentProjectId: search.sourceProjectId,
             requestId: crypto.randomUUID(),
           },
         });

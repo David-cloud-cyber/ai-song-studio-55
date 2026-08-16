@@ -252,9 +252,46 @@ export type Database = {
         };
         Relationships: [];
       };
+      test_access_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          grant_key: string;
+          plan: string;
+          cycle: string;
+          credits_granted: number;
+          expires_at: string;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          grant_key: string;
+          plan: string;
+          cycle?: string;
+          credits_granted: number;
+          expires_at: string;
+          reason: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          grant_key?: string;
+          plan?: string;
+          cycle?: string;
+          credits_granted?: number;
+          expires_at?: string;
+          reason?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       projects: {
         Row: {
           audio_url: string | null;
+          archived_at: string | null;
           cover_gradient: string | null;
           cover_url: string | null;
           created_at: string;
@@ -288,6 +325,7 @@ export type Database = {
         };
         Insert: {
           audio_url?: string | null;
+          archived_at?: string | null;
           cover_gradient?: string | null;
           cover_url?: string | null;
           created_at?: string;
@@ -321,6 +359,7 @@ export type Database = {
         };
         Update: {
           audio_url?: string | null;
+          archived_at?: string | null;
           cover_gradient?: string | null;
           cover_url?: string | null;
           created_at?: string;
@@ -404,6 +443,16 @@ export type Database = {
       };
     };
     Functions: {
+      grant_test_subscription: {
+        Args: {
+          _credits?: number;
+          _duration?: string;
+          _email: string;
+          _grant_key: string;
+          _plan?: string;
+        };
+        Returns: Json;
+      };
       activate_payment_order: {
         Args: { _amount_xaf: number; _provider_reference: string; _provider_status: string };
         Returns: boolean;

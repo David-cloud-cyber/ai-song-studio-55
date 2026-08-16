@@ -119,12 +119,25 @@ export function AudioPlayer({
 
         <div className="min-w-0 flex-1">
           <div
-            role="presentation"
+            role="slider"
+            tabIndex={duration ? 0 : -1}
+            aria-label="Position dans le morceau"
+            aria-valuemin={0}
+            aria-valuemax={duration || 0}
+            aria-valuenow={time}
             onClick={(e) => {
               const el = ref.current;
               if (!el || !duration) return;
               const rect = e.currentTarget.getBoundingClientRect();
               el.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+            }}
+            onKeyDown={(e) => {
+              const el = ref.current;
+              if (!el || !duration) return;
+              const step = e.shiftKey ? 10 : 5;
+              if (e.key === "ArrowRight")
+                el.currentTime = Math.min(duration, el.currentTime + step);
+              if (e.key === "ArrowLeft") el.currentTime = Math.max(0, el.currentTime - step);
             }}
             className={cn(compact ? "h-8" : "h-10", "cursor-pointer")}
           >

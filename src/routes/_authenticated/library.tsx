@@ -24,6 +24,7 @@ type DbProject = {
   created_at: string;
   progress: number;
   audio_url: string | null;
+  archived_at: string | null;
 };
 
 export const Route = createFileRoute("/_authenticated/library")({
@@ -44,6 +45,7 @@ const filters = [
   { id: "ready", label: "Prêts" },
   { id: "rendering", label: "En cours" },
   { id: "draft", label: "Brouillons" },
+  { id: "archived", label: "Archives" },
 ] as const;
 
 const wave = (seed: string, len = 32) => {
@@ -74,7 +76,7 @@ function LibraryPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url",
+          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url,archived_at",
         )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
@@ -85,7 +87,8 @@ function LibraryPage() {
 
   const filtered = projects.filter(
     (p) =>
-      (filter === "all" || p.status === filter) &&
+      (filter === "archived" ? Boolean(p.archived_at) : !p.archived_at) &&
+      (filter === "all" || filter === "archived" || p.status === filter) &&
       (q === "" || p.title.toLowerCase().includes(q.toLowerCase())),
   );
 
@@ -155,7 +158,11 @@ function LibraryPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((p) => (
               <div key={p.id} className="min-w-0">
-                <Link to="/library/$projectId" params={{ projectId: p.id }} className="group block">
+                <Link
+                  to="/library/$projectId"
+                  params={{ projectId: p.id }}
+                  className={cn("group block", p.archived_at && "opacity-70")}
+                >
                   <CoverArt
                     gradient={p.cover_gradient ?? fallbackGradient}
                     className="aspect-square rounded-2xl"
@@ -169,7 +176,8 @@ function LibraryPage() {
                   </CoverArt>
                   <div className="mt-2 truncate text-sm font-semibold">{p.title}</div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-                    {p.genre ?? "—"} · {formatDuration(p.duration_seconds)}
+                    {p.archived_at ? "Archivé" : (p.genre ?? "—")} ·{" "}
+                    {formatDuration(p.duration_seconds)}
                   </div>
                 </Link>
                 {p.audio_url && p.status === "ready" && (

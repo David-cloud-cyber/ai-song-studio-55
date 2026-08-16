@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { BottomTabs } from "./BottomTabs";
 import { DesktopSidebar } from "./DesktopSidebar";
@@ -14,6 +15,7 @@ const PUBLIC_ROUTES = [
   "/features",
   "/pricing",
   "/contact",
+  "/feed",
   "/changelog",
   "/legal",
   "/privacy",
@@ -24,6 +26,7 @@ const PUBLIC_ROUTES = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const hideComposer =
     pathname.startsWith("/create") ||
     pathname.startsWith("/editor") ||
@@ -32,6 +35,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isPublic = PUBLIC_ROUTES.some((route) =>
     route === "/" ? pathname === route : pathname.startsWith(route),
   );
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem("loopster.sidebar.collapsed") === "true");
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("loopster.sidebar.collapsed", String(next));
+      return next;
+    });
+  };
   if (isPublic) return <>{children}</>;
   if (isOnboarding)
     return <div className="relative min-h-screen bg-background text-foreground">{children}</div>;
@@ -40,14 +54,26 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative min-h-screen min-w-0 overflow-x-clip bg-background text-foreground">
       <OnboardingGate />
       <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(117,230,255,0.10),transparent_75%)]" />
-      <DesktopSidebar />
+      <DesktopSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       <div className="md:hidden">
         <TopBar />
       </div>
-      <main className="mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:ml-64 md:mr-0 md:w-[calc(100%_-_16rem)] md:max-w-none md:px-10 md:pb-40 md:pt-6">
+      <main
+        className={
+          "mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:mr-0 md:max-w-none md:px-10 md:pb-40 md:pt-6 " +
+          (sidebarCollapsed
+            ? "md:ml-[72px] md:w-[calc(100%_-_72px)]"
+            : "md:ml-64 md:w-[calc(100%_-_16rem)]")
+        }
+      >
         <div className="w-full min-w-0 md:mx-auto md:max-w-6xl">{children}</div>
       </main>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:left-64 md:right-0">
+      <div
+        className={
+          "pointer-events-none fixed inset-x-0 bottom-0 z-40 md:right-0 " +
+          (sidebarCollapsed ? "md:left-[72px]" : "md:left-64")
+        }
+      >
         <div className="mx-auto min-w-0 max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:w-full md:max-w-3xl md:pb-4">
           <div className="mb-2 px-1">
             <LivePlayerBar />

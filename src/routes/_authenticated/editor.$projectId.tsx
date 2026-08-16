@@ -249,6 +249,18 @@ function EditorPage() {
             </section>
 
             <section className="rounded-2xl border border-white/5 bg-surface p-4 sm:p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <ListMusic className="size-4 text-neon" />
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                  Prompt original
+                </h2>
+              </div>
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">
+                {project.prompt ?? "Aucun prompt enregistré pour ce projet."}
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-white/5 bg-surface p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <ListMusic className="size-4 text-neon" />
                 <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-300">

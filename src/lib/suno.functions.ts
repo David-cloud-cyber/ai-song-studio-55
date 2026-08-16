@@ -240,6 +240,7 @@ export const generateTrack = createServerFn({ method: "POST" })
         negativeTags: z.string().trim().max(200).optional(),
         durationSeconds: z.number().int().min(30).max(480).optional(),
         coverGradient: z.string().max(200).optional(),
+        parentProjectId: z.string().uuid().optional(),
         requestId: z.string().uuid().optional(),
       })
       .parse(input),
@@ -269,6 +270,7 @@ export const generateTrack = createServerFn({ method: "POST" })
         model: data.model,
         style,
         cover_gradient: data.coverGradient ?? null,
+        parent_project_id: data.parentProjectId ?? null,
         tags: [data.genre, data.mood].filter(Boolean) as string[],
       })
       .select("id")
@@ -675,6 +677,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         instrumental: z.boolean().default(false),
         model: z.enum(MODELS).default("V4_5"),
         coverGradient: z.string().max(200).optional(),
+        parentProjectId: z.string().uuid().optional(),
         requestId: z.string().uuid().optional(),
       })
       .parse(input),
@@ -699,6 +702,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         model: data.model,
         style,
         cover_gradient: data.coverGradient ?? null,
+        parent_project_id: data.parentProjectId ?? null,
         tags: [data.genre, data.mood].filter(Boolean) as string[],
       })
       .select("id")

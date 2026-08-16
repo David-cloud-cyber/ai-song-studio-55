@@ -37,18 +37,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <div className="relative min-h-screen bg-background text-foreground">{children}</div>;
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen min-w-0 overflow-x-clip bg-background text-foreground">
       <OnboardingGate />
       <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(117,230,255,0.10),transparent_75%)]" />
       <DesktopSidebar />
       <div className="md:hidden">
         <TopBar />
       </div>
-      <main className="mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:ml-64 md:max-w-none md:px-10 md:pb-40 md:pt-6">
-        <div className="min-w-0 md:mx-auto md:max-w-6xl">{children}</div>
+      <main className="mx-auto w-full min-w-0 max-w-md pb-[calc(16rem+env(safe-area-inset-bottom))] md:ml-64 md:mr-0 md:w-[calc(100%_-_16rem)] md:max-w-none md:px-10 md:pb-40 md:pt-6">
+        <div className="w-full min-w-0 md:mx-auto md:max-w-6xl">{children}</div>
       </main>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:left-64">
-        <div className="mx-auto max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:max-w-3xl md:pb-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:left-64 md:right-0">
+        <div className="mx-auto min-w-0 max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:w-full md:max-w-3xl md:pb-4">
           <div className="mb-2 px-1">
             <LivePlayerBar />
           </div>

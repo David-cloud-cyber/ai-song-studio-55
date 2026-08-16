@@ -159,9 +159,14 @@ function CreatePage() {
         description: `${res.creditsSpent} crédits utilisés · ton morceau arrive bientôt.`,
       });
       navigate({ to: "/library/$projectId", params: { projectId: res.projectId } });
-    } catch {
+    } catch (error) {
+      console.error("[create] generation failed", error);
+      const message = error instanceof Error ? error.message : "";
+      const description = message.includes("Crédit")
+        ? "Vérifie ton solde puis réessaie."
+        : "Le studio musical est momentanément indisponible. Si la création a échoué, tes crédits sont rendus automatiquement. Réessaie dans un instant.";
       toast.error("Le morceau fait une petite pause", {
-        description: "On retente dans un instant ?",
+        description,
       });
     } finally {
       setGenerating(false);
@@ -279,13 +284,13 @@ function CreatePage() {
               <Cpu className="size-4 text-zinc-400" />
               <span className="text-sm font-medium">Modèle</span>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex min-w-0 gap-1.5">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setModel(m.id)}
                   className={cn(
-                    "flex-1 rounded-xl border px-3 py-2 text-xs transition-colors",
+                    "min-w-0 flex-1 rounded-xl border px-2 py-2 text-xs transition-colors",
                     model === m.id
                       ? "border-neon/40 bg-neon/10 text-neon"
                       : "border-white/5 bg-white/[0.03] text-zinc-400",

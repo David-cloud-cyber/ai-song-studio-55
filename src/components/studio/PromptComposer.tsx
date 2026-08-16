@@ -53,8 +53,14 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
       ]);
       setValue("");
       navigate({ to: "/library/$projectId", params: { projectId: result.projectId } });
-    } catch {
-      toast.error("Le morceau fait une petite pause", { description: "Réessaie dans un instant." });
+    } catch (error) {
+      console.error("[prompt-composer] generation failed", error);
+      const message = error instanceof Error ? error.message : "";
+      toast.error("Le morceau fait une petite pause", {
+        description: message.includes("Crédit")
+          ? "Vérifie ton solde puis réessaie."
+          : "Le studio musical est momentanément indisponible. Si la création a échoué, tes crédits sont rendus automatiquement. Réessaie dans un instant.",
+      });
     } finally {
       setBusy(false);
     }

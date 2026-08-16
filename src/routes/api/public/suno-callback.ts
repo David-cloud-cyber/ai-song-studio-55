@@ -107,7 +107,11 @@ export const Route = createFileRoute("/api/public/suno-callback")({
           if (job.project_id) {
             await supabaseAdmin
               .from("projects")
-              .update({ error_message: body.msg ?? "Échec Suno" })
+              .update({
+                status: "draft",
+                progress: 0,
+                error_message: body.msg ?? "Échec de la création",
+              })
               .eq("id", job.project_id);
           }
           return new Response("ok");
@@ -356,7 +360,6 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               cover_url: durableImageUrl,
               suno_audio_id: clip?.id ?? null,
               duration_seconds: clip?.duration ? Math.round(clip.duration) : null,
-              lyrics: clip?.prompt ?? null,
               error_message: null,
             })
             .eq("suno_task_id", taskId);

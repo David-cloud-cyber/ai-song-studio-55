@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, AudioLines, Image, Mic2, PenLine, Sparkles } from "lucide-react";
+import { ArrowRight, AudioLines, Image, Mic2, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { useSession } from "@/hooks/use-session";
@@ -64,7 +64,12 @@ export const Route = createFileRoute("/_authenticated/studio")({
 function Studio() {
   const { user } = useSession();
   const { data: profile } = useProfile();
-  const { data: recent = [], isLoading } = useQuery({
+  const {
+    data: recent = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["studio-projects", user?.id],
     enabled: !!user,
     queryFn: async () => {
@@ -123,6 +128,17 @@ function Studio() {
           {isLoading ? (
             <div className="rounded-2xl border border-border bg-surface px-5 py-8 text-sm text-muted-foreground">
               Chargement de tes créations…
+            </div>
+          ) : isError ? (
+            <div className="w-full rounded-2xl border border-dashed border-danger/40 bg-danger/5 p-8 text-center">
+              <p className="text-sm text-danger">Impossible de charger tes créations.</p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-danger/30 px-4 py-2.5 text-xs font-semibold text-danger"
+              >
+                <RefreshCw className="size-3.5" /> Réessayer
+              </button>
             </div>
           ) : recent.length > 0 ? (
             recent.map((project) => <ProjectCard key={project.id} project={project} />)

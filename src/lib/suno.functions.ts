@@ -1219,7 +1219,6 @@ export const syncProject = createServerFn({ method: "POST" })
             cover_url: durableImageUrl,
             suno_audio_id: clip.id,
             duration_seconds: clip.duration ? Math.round(clip.duration) : project.duration_seconds,
-            lyrics: clip.prompt ?? null,
             error_message: null,
           })
           .eq("id", project.id);

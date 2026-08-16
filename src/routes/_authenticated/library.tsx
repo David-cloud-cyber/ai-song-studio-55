@@ -9,7 +9,7 @@ import { CoverArt } from "@/components/studio/CoverArt";
 import { WaveformBars } from "@/components/studio/WaveformBars";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
-import { Search, Sparkles } from "lucide-react";
+import { RefreshCw, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type DbProject = {
@@ -69,7 +69,12 @@ function LibraryPage() {
   const [filter, setFilter] = useState<(typeof filters)[number]["id"]>("all");
   const [q, setQ] = useState("");
 
-  const { data: projects = [], isLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["projects", user?.id],
     enabled: !!user,
     queryFn: async () => {
@@ -139,6 +144,17 @@ function LibraryPage() {
         {isLoading ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-400">
             Chargement…
+          </div>
+        ) : isError ? (
+          <div className="rounded-2xl border border-dashed border-danger/40 bg-danger/5 p-10 text-center">
+            <p className="text-sm text-danger">Ta bibliothèque fait une petite pause.</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-danger/30 px-4 py-2 text-xs font-semibold text-danger"
+            >
+              <RefreshCw className="size-3.5" /> Réessayer
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">

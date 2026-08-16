@@ -149,6 +149,7 @@ function ProjectDetail() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [archiving, setArchiving] = useState(false);
+  const [archivePromptOpen, setArchivePromptOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const canDownload = isPaidPlan(profile);
@@ -249,6 +250,7 @@ function ProjectDetail() {
 
   const gradient = project.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700";
   const cover = project.image_url ?? project.cover_url;
+  const isArchived = Boolean(project.archived_at);
 
   const doExtend = async () => {
     setBusy("extend");
@@ -260,9 +262,12 @@ function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Le morceau continue !", { description: `${COSTS.extend} crédits utilisés.` });
       window.location.href = `/library/${res.projectId}`;
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
       toast.error("Le morceau a besoin d'une petite pause", {
-        description: "On retente dans un instant ?",
+        description: message.includes("crédit")
+          ? "Vérifie ton solde puis réessaie."
+          : "La création n’a pas abouti. Tes crédits seront rendus si nécessaire.",
       });
     } finally {
       setBusy(null);
@@ -279,9 +284,12 @@ function ProjectDetail() {
       toast.success("Les pistes se séparent !", {
         description: `${COSTS.stems} crédits utilisés.`,
       });
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
       toast.error("Les pistes font une petite pause", {
-        description: "On retente dans un instant ?",
+        description: message.includes("crédit")
+          ? "Vérifie ton solde puis réessaie."
+          : "La séparation n’a pas abouti. Tes crédits seront rendus si nécessaire.",
       });
     } finally {
       setBusy(null);
@@ -303,9 +311,14 @@ function ProjectDetail() {
         const child = result as { projectId?: string };
         if (child.projectId) window.location.href = `/library/${child.projectId}`;
       }
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
       toast.error("Oups, petit contretemps", {
-        description: "On retente dans un instant ?",
+        description: message.includes("crédit")
+          ? "Vérifie ton solde puis réessaie."
+          : message.includes("copyright") || message.includes("protég")
+            ? "Essaie une description plus personnelle, sans reprendre des paroles connues."
+            : "Le traitement n’a pas abouti. Tes crédits seront rendus si nécessaire.",
       });
     } finally {
       setBusy(null);
@@ -421,13 +434,14 @@ function ProjectDetail() {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
       await queryClient.invalidateQueries({ queryKey: ["public-creations"] });
       toast.success(archived ? "Projet archivé" : "Projet restauré");
+      setArchivePromptOpen(false);
       if (archived) window.location.href = "/library";
     }
     setArchiving(false);
   };
 
   const togglePublic = async () => {
-    if (publishing || project.status !== "ready" || !project.audio_url) return;
+    if (publishing || isArchived || project.status !== "ready" || !project.audio_url) return;
     setPublishing(true);
     const next = !project.is_public;
     const { error } = await supabase
@@ -542,9 +556,11 @@ function ProjectDetail() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => void toggleFavorite()}
               className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface"
-              aria-label="Favori"
+              aria-label={project.is_favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              aria-pressed={project.is_favorite}
             >
               <Heart className={cn("size-4", project.is_favorite && "fill-neon text-neon")} />
             </button>
@@ -566,6 +582,34 @@ function ProjectDetail() {
                 )}
                 Restaurer
               </button>
+            </div>
+          )}
+
+          {!isArchived && archivePromptOpen && (
+            <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 p-4">
+              <p className="text-sm font-medium text-warning-foreground">Archiver ce projet ?</p>
+              <p className="mt-1 text-xs leading-5 text-warning-foreground/80">
+                Il quittera ta bibliothèque principale et la galerie publique, mais tu pourras le
+                restaurer à tout moment.
+              </p>
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setArchivePromptOpen(false)}
+                  className="min-h-10 rounded-xl border border-warning/30 px-3 text-xs font-semibold text-warning-foreground"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void toggleArchive()}
+                  disabled={archiving}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-warning px-3 text-xs font-semibold text-warning-foreground disabled:opacity-50"
+                >
+                  {archiving && <Loader2 className="size-3.5 animate-spin" />}
+                  Confirmer l’archivage
+                </button>
+              </div>
             </div>
           )}
 
@@ -626,7 +670,7 @@ function ProjectDetail() {
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <button
               onClick={doExtend}
-              disabled={!project.suno_audio_id || busy !== null}
+              disabled={isArchived || !project.suno_audio_id || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "extend" ? (
@@ -638,7 +682,12 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doStems}
-              disabled={!project.suno_audio_id || busy !== null || stems?.status === "processing"}
+              disabled={
+                isArchived ||
+                !project.suno_audio_id ||
+                busy !== null ||
+                stems?.status === "processing"
+              }
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "stems" ? (
@@ -646,14 +695,14 @@ function ProjectDetail() {
               ) : (
                 <Scissors className="size-3.5" />
               )}
-              Stems · {COSTS.stems} CR
+              Pistes · {COSTS.stems} CR
             </button>
           </div>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               onClick={doVocals}
-              disabled={!project.audio_url || busy !== null}
+              disabled={isArchived || !project.audio_url || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-neon/20 bg-neon/5 py-2.5 text-xs font-semibold text-neon disabled:opacity-40"
             >
               {busy === "vocals" ? (
@@ -665,7 +714,7 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doInstrumental}
-              disabled={!project.audio_url || busy !== null}
+              disabled={isArchived || !project.audio_url || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "instrumental" ? (
@@ -677,7 +726,7 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doCover}
-              disabled={!project.suno_task_id || Boolean(cover) || busy !== null}
+              disabled={isArchived || !project.suno_task_id || Boolean(cover) || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "cover" ? (
@@ -699,7 +748,9 @@ function ProjectDetail() {
             <button
               type="button"
               onClick={() => void togglePublic()}
-              disabled={publishing || project.status !== "ready" || !project.audio_url}
+              disabled={
+                isArchived || publishing || project.status !== "ready" || !project.audio_url
+              }
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               {publishing ? (
@@ -711,25 +762,37 @@ function ProjectDetail() {
             </button>
             <a
               href={`/create?sourceProjectId=${project.id}&mode=remix`}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
+              aria-disabled={isArchived}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold",
+                isArchived && "pointer-events-none opacity-40",
+              )}
             >
               <Wand2 className="size-3.5" /> Remix
             </a>
             <a
               href={`/create?sourceProjectId=${project.id}&mode=recreate`}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
+              aria-disabled={isArchived}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold",
+                isArchived && "pointer-events-none opacity-40",
+              )}
             >
               <Copy className="size-3.5" /> Recréer
             </a>
             <a
               href={`/create?sourceProjectId=${project.id}&mode=variant`}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
+              aria-disabled={isArchived}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold",
+                isArchived && "pointer-events-none opacity-40",
+              )}
             >
               <Sliders className="size-3.5" /> Variante
             </a>
             <button
               type="button"
-              onClick={() => void toggleArchive()}
+              onClick={() => (isArchived ? void toggleArchive() : setArchivePromptOpen(true))}
               disabled={archiving}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-50"
             >
@@ -745,7 +808,7 @@ function ProjectDetail() {
           <div className="mt-2 grid grid-cols-3 gap-2">
             <button
               onClick={doLyrics}
-              disabled={busy !== null}
+              disabled={isArchived || busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
               {busy === "lyrics" ? (
@@ -757,7 +820,7 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doWav}
-              disabled={!project.suno_audio_id || busy !== null}
+              disabled={isArchived || !project.suno_audio_id || busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
               {busy === "wav" ? (
@@ -769,7 +832,7 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doVideo}
-              disabled={!project.suno_audio_id || busy !== null}
+              disabled={isArchived || !project.suno_audio_id || busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
               {busy === "video" ? (

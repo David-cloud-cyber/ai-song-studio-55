@@ -35,6 +35,7 @@ import {
   Music,
   FileAudio,
   Video,
+  Globe2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -71,6 +72,8 @@ type Project = {
   error_message: string | null;
   wav_url: string | null;
   video_url: string | null;
+  is_public: boolean;
+  published_at: string | null;
 };
 
 export const Route = createFileRoute("/_authenticated/library/$projectId")({
@@ -116,6 +119,7 @@ function ProjectDetail() {
   const [busy, setBusy] = useState<
     null | "extend" | "stems" | "vocals" | "instrumental" | "lyrics" | "wav" | "video"
   >(null);
+  const [publishing, setPublishing] = useState(false);
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const canDownload = isPaidPlan(profile);
@@ -309,6 +313,30 @@ function ProjectDetail() {
     await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
   };
 
+  const togglePublic = async () => {
+    if (publishing || project.status !== "ready" || !project.audio_url) return;
+    setPublishing(true);
+    const next = !project.is_public;
+    const { error } = await supabase
+      .from("projects")
+      .update({
+        is_public: next,
+        published_at: next ? new Date().toISOString() : null,
+      })
+      .eq("id", project.id);
+
+    if (error) {
+      toast.error("La galerie n'a pas pu être mise à jour", {
+        description: "On retente dans un instant ?",
+      });
+    } else {
+      await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
+      await queryClient.invalidateQueries({ queryKey: ["public-creations"] });
+      toast.success(next ? "Création publiée dans la galerie" : "Création retirée de la galerie");
+    }
+    setPublishing(false);
+  };
+
   const shareProject = async () => {
     const url = window.location.href;
     try {
@@ -493,6 +521,19 @@ function ProjectDetail() {
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold"
             >
               <Share2 className="size-3.5" /> Partager
+            </button>
+            <button
+              type="button"
+              onClick={() => void togglePublic()}
+              disabled={publishing || project.status !== "ready" || !project.audio_url}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {publishing ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Globe2 className="size-3.5" />
+              )}
+              {project.is_public ? "Retirer de la galerie" : "Publier dans la galerie"}
             </button>
             <Link
               to="/create"

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Accordion,
   AccordionContent,
@@ -9,9 +10,17 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { HeroPromptInput } from "@/components/marketing/HeroPromptInput";
 import { PricingSection } from "@/components/marketing/PricingSection";
-import { CoverArt } from "@/components/studio/CoverArt";
-import { WaveformBars } from "@/components/studio/WaveformBars";
-import { feedItems } from "@/data/mock";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  CreationRail,
+  FeatureCard as MarketingFeatureCard,
+  FinalCta as MarketingFinalCta,
+  LogoStrip,
+  MarketingShell,
+  Pill,
+  ProductPreview,
+  type PublicCreation,
+} from "@/components/marketing/MarketingPrimitives";
 import {
   ArrowRight,
   AudioLines,
@@ -87,39 +96,6 @@ const featureCards = [
   },
 ];
 
-const gallery = [
-  {
-    title: "Neon Drift",
-    genre: "Synthwave",
-    gradient: "from-cyan-300 via-blue-600 to-indigo-950",
-    index: 0,
-  },
-  {
-    title: "Velvet Morning",
-    genre: "R&B",
-    gradient: "from-rose-300 via-orange-500 to-slate-950",
-    index: 1,
-  },
-  {
-    title: "Low Light Theory",
-    genre: "Phonk",
-    gradient: "from-violet-400 via-fuchsia-600 to-slate-950",
-    index: 2,
-  },
-  {
-    title: "After Rain",
-    genre: "Ambient",
-    gradient: "from-emerald-300 via-teal-500 to-slate-950",
-    index: 3,
-  },
-  {
-    title: "Chrome Echoes",
-    genre: "Techno",
-    gradient: "from-slate-300 via-slate-600 to-slate-950",
-    index: 4,
-  },
-];
-
 const faqs = [
   {
     question: "Que puis-je créer avec Loopster ?",
@@ -149,22 +125,50 @@ const faqs = [
 ];
 
 function Landing() {
+  const {
+    data: creations = [],
+    isLoading: galleryLoading,
+    isError: galleryError,
+  } = useQuery({
+    queryKey: ["public-creations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("public_creations")
+        .select(
+          "id,title,genre,duration_seconds,cover_url,image_url,audio_url,creator_name,published_at",
+        )
+        .order("published_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []) as unknown as PublicCreation[];
+    },
+    staleTime: 60_000,
+  });
+
   return (
-    <div className="min-h-screen min-w-0 bg-background text-foreground">
+    <MarketingShell>
       <MarketingNav />
       <main className="pt-[60px] sm:pt-[68px]">
+        <div className="border-b border-border-subtle bg-surface-subtle/50 px-4 py-2 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:px-6">
+          80 crédits chaque jour · écoute gratuite · exports réservés aux abonnés
+        </div>
         <Hero />
         <TrustStrip />
         <FeatureSection />
-        <GallerySection />
+        <GallerySection creations={creations} loading={galleryLoading} error={galleryError} />
         <WorkflowSection />
+        <StudioPreviewSection />
         <TemplatesSection />
+        <RightsSection />
         <PricingSection />
         <FaqSection />
-        <FinalCta />
+        <MarketingFinalCta
+          title="Ta prochaine idée mérite un espace pour grandir."
+          description="Commence gratuitement, écoute le résultat et décide ensuite comment aller plus loin."
+        />
       </main>
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }
 
@@ -174,10 +178,10 @@ function Hero() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(117,230,255,0.16),transparent_48%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
       <div className="relative mx-auto max-w-5xl text-center">
-        <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+        <Pill>
           <span className="size-1.5 rounded-full bg-primary" />
           Ton atelier musical, toujours ouvert
-        </div>
+        </Pill>
         <h1 className="marketing-title mx-auto mt-7 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.045em] sm:text-6xl md:text-7xl">
           Fais entendre ce que tu as en tête.
         </h1>
@@ -211,14 +215,7 @@ function TrustStrip() {
         <p className="max-w-sm text-sm leading-6 text-muted-foreground">
           Une expérience pensée pour les artistes qui veulent passer de l’intuition à l’action.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground sm:justify-end">
-          <span className="rounded-full border border-border bg-surface px-3 py-2">Morceaux</span>
-          <span className="rounded-full border border-border bg-surface px-3 py-2">
-            Instrumentales
-          </span>
-          <span className="rounded-full border border-border bg-surface px-3 py-2">Voix</span>
-          <span className="rounded-full border border-border bg-surface px-3 py-2">Visuels</span>
-        </div>
+        <LogoStrip labels={["Morceaux", "Instrumentales", "Voix", "Visuels"]} />
       </div>
     </section>
   );
@@ -234,35 +231,32 @@ function FeatureSection() {
           description="Des outils simples au premier regard, suffisamment puissants quand ton projet prend de l’ampleur."
         />
         <div className="mt-12 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {featureCards.map((feature, index) => {
-            const Icon = feature.icon;
-            return (
-              <article
-                key={feature.title}
-                className={`group rounded-3xl border p-6 transition-colors hover:border-primary/40 ${index === 0 ? "border-primary/35 bg-primary/[0.06] md:col-span-2 lg:col-span-1" : "border-border bg-surface"}`}
-              >
-                <div className="grid size-11 place-items-center rounded-2xl bg-surface-elevated text-primary">
-                  <Icon className="size-5" />
-                </div>
-                <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
-                  {feature.eyebrow}
-                </p>
-                <h3 className="mt-2 text-xl font-semibold leading-tight tracking-tight">
-                  {feature.title}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  {feature.description}
-                </p>
-              </article>
-            );
-          })}
+          {featureCards.map((feature, index) => (
+            <MarketingFeatureCard
+              key={feature.title}
+              {...feature}
+              className={
+                index === 0
+                  ? "border-primary/35 bg-primary/[0.06] md:col-span-2 lg:col-span-1"
+                  : undefined
+              }
+            />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function GallerySection() {
+function GallerySection({
+  creations,
+  loading,
+  error,
+}: {
+  creations: PublicCreation[];
+  loading: boolean;
+  error: boolean;
+}) {
   return (
     <section
       id="gallery"
@@ -270,33 +264,13 @@ function GallerySection() {
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionIntro
-          eyebrow="Aperçu Loopster"
-          title="Une idée peut prendre plusieurs formes."
-          description="Quelques directions visuelles pour te projeter. Les créations publiques réelles vivent dans la galerie Loopster."
+          eyebrow="Galerie Loopster"
+          title="Écoute ce que la communauté choisit de partager."
+          description="Chaque création affichée ici a été publiée volontairement par son auteur."
         />
       </div>
-      <div className="no-scrollbar mt-12 flex gap-4 overflow-x-auto px-4 sm:px-6 lg:justify-center">
-        {gallery.map((item) => (
-          <article key={item.title} className="w-56 shrink-0 sm:w-64">
-            <div className="relative overflow-hidden rounded-3xl border border-border bg-surface">
-              <CoverArt gradient={item.gradient} className="aspect-square">
-                <div className="absolute inset-x-3 bottom-3 h-8">
-                  <WaveformBars
-                    peaks={(feedItems[item.index]?.waveform ?? [0.3, 0.7, 0.5, 0.9]).slice(0, 24)}
-                    animated
-                  />
-                </div>
-                <div className="absolute left-3 top-3 rounded-full bg-background/70 px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest text-foreground backdrop-blur">
-                  Aperçu
-                </div>
-              </CoverArt>
-            </div>
-            <h3 className="mt-3 truncate text-sm font-semibold">{item.title}</h3>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {item.genre} · création de démonstration
-            </p>
-          </article>
-        ))}
+      <div className="mt-12">
+        <CreationRail items={creations} loading={loading} error={error} />
       </div>
     </section>
   );
@@ -346,6 +320,21 @@ function WorkflowSection() {
   );
 }
 
+function StudioPreviewSection() {
+  return (
+    <section className="marketing-section border-y border-border-subtle bg-surface-subtle/35 px-4 py-24 sm:px-6 md:py-32">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+        <SectionIntro
+          eyebrow="Ton espace de création"
+          title="Un studio clair quand ton idée devient plus ambitieuse."
+          description="Retrouve ton prompt, tes versions et ta prochaine action au même endroit, sans te perdre dans les réglages."
+        />
+        <ProductPreview />
+      </div>
+    </section>
+  );
+}
+
 function TemplatesSection() {
   const templates = [
     { title: "Morceau complet", description: "Voix et instru", icon: AudioLines },
@@ -386,6 +375,42 @@ function TemplatesSection() {
   );
 }
 
+function RightsSection() {
+  return (
+    <section className="marketing-section px-4 py-24 sm:px-6 md:py-32">
+      <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-3">
+        <div className="rounded-3xl border border-primary/30 bg-primary/[0.06] p-6 md:col-span-2 md:p-8">
+          <ShieldCheck className="size-6 text-primary" aria-hidden />
+          <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
+            Quand ton projet est prêt
+          </p>
+          <h2 className="mt-3 max-w-xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            Écoute gratuitement. Exporte au bon moment.
+          </h2>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+            Tes créations restent dans ta bibliothèque. Les formules payantes débloquent les exports
+            et les droits commerciaux selon l’offre choisie.
+          </p>
+        </div>
+        <div className="rounded-3xl border border-border bg-surface p-6 md:p-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Formats</p>
+          <ul className="mt-5 space-y-3 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-success" /> MP3 pour partager vite
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-success" /> WAV pour travailler plus loin
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="size-4 text-success" /> Visuel vidéo selon disponibilité
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FaqSection() {
   return (
     <section id="faq" className="marketing-section px-4 py-24 sm:px-6 md:py-32">
@@ -411,28 +436,6 @@ function FaqSection() {
             </AccordionItem>
           ))}
         </Accordion>
-      </div>
-    </section>
-  );
-}
-
-function FinalCta() {
-  return (
-    <section className="px-4 pb-24 sm:px-6 md:pb-32">
-      <div className="mx-auto max-w-5xl rounded-[28px] border border-primary/35 bg-primary/[0.06] p-7 text-center sm:p-12 md:p-16">
-        <ShieldCheck className="mx-auto size-7 text-primary" />
-        <h2 className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-          Ta prochaine idée mérite un espace pour grandir.
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-          Commence gratuitement, écoute le résultat et décide ensuite comment aller plus loin.
-        </p>
-        <Link
-          to="/auth"
-          className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:-translate-y-0.5"
-        >
-          Créer mon premier morceau <ArrowRight className="size-4" />
-        </Link>
       </div>
     </section>
   );

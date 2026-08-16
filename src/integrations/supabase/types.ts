@@ -264,7 +264,9 @@ export type Database = {
           id: string;
           image_url: string | null;
           instrumental: boolean;
+          is_public: boolean;
           is_favorite: boolean;
+          published_at: string | null;
           lyrics: string | null;
           model: string | null;
           mood: string | null;
@@ -295,7 +297,9 @@ export type Database = {
           id?: string;
           image_url?: string | null;
           instrumental?: boolean;
+          is_public?: boolean;
           is_favorite?: boolean;
+          published_at?: string | null;
           lyrics?: string | null;
           model?: string | null;
           mood?: string | null;
@@ -326,7 +330,9 @@ export type Database = {
           id?: string;
           image_url?: string | null;
           instrumental?: boolean;
+          is_public?: boolean;
           is_favorite?: boolean;
+          published_at?: string | null;
           lyrics?: string | null;
           model?: string | null;
           mood?: string | null;
@@ -379,7 +385,23 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      public_creations: {
+        Row: {
+          audio_url: string | null;
+          cover_url: string | null;
+          created_at: string;
+          creator_name: string;
+          duration_seconds: number | null;
+          genre: string | null;
+          id: string;
+          image_url: string | null;
+          published_at: string | null;
+          title: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Functions: {
       activate_payment_order: {

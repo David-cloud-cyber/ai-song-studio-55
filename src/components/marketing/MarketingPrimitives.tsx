@@ -246,16 +246,25 @@ export function ProductPreview() {
 }
 
 export function LogoStrip({ labels }: { labels: string[] }) {
+  const marqueeItems = [...labels, ...labels];
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {labels.map((label) => (
-        <span
-          key={label}
-          className="rounded-full border border-border bg-surface px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"
-        >
-          {label}
-        </span>
-      ))}
+    <div
+      className="relative min-w-0 w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
+      aria-label="Les univers Loopster"
+    >
+      <div className="animate-marquee flex min-w-max items-center hover:[animation-play-state:paused]">
+        {marqueeItems.map((label, index) => (
+          <span
+            key={`${label}-${index}`}
+            aria-hidden={index >= labels.length}
+            className="inline-flex min-h-12 items-center gap-3 px-4 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:px-6"
+          >
+            <LoopsterLogo compact className="opacity-60" imageClassName="size-5" />
+            <span>{label}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

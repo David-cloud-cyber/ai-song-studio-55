@@ -175,7 +175,10 @@ function Landing() {
 function Hero() {
   return (
     <section className="relative overflow-hidden px-4 pb-20 pt-16 sm:px-6 sm:pt-24 md:pb-28 md:pt-32">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(117,230,255,0.16),transparent_48%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(117,230,255,0.24),rgba(181,164,255,0.12)_34%,transparent_72%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(17,22,29,0.08)_0%,rgba(9,12,16,0.94)_78%)]" />
+      <div className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-secondary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 top-16 size-72 rounded-full bg-accent/10 blur-3xl" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
       <div className="relative mx-auto max-w-5xl text-center">
         <Pill>

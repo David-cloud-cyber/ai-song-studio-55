@@ -23,6 +23,7 @@ export function AudioPlayer({
   label,
   downloadName,
   canDownload = false,
+  compact = false,
   className,
 }: {
   src: string;
@@ -30,23 +31,53 @@ export function AudioPlayer({
   label?: string;
   downloadName?: string;
   canDownload?: boolean;
+  compact?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     setPlaying(false);
     setTime(0);
+    setDuration(0);
+    setError(false);
+    setLoading(false);
+    if (ref.current) ref.current.pause();
   }, [src]);
 
-  const toggle = () => {
+  useEffect(() => {
+    const handleOtherAudio = (event: Event) => {
+      if (ref.current && (event as CustomEvent<HTMLAudioElement>).detail !== ref.current) {
+        ref.current.pause();
+      }
+    };
+    window.addEventListener("loopster:audio-play", handleOtherAudio);
+    return () => window.removeEventListener("loopster:audio-play", handleOtherAudio);
+  }, []);
+
+  const toggle = async () => {
     const el = ref.current;
     if (!el) return;
-    if (el.paused) void el.play();
-    else el.pause();
+    setError(false);
+    if (el.paused) {
+      setLoading(true);
+      try {
+        window.dispatchEvent(new CustomEvent("loopster:audio-play", { detail: el }));
+        await el.play();
+      } catch {
+        setPlaying(false);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      el.pause();
+    }
   };
 
   const progress = duration ? time / duration : 0;
@@ -54,7 +85,9 @@ export function AudioPlayer({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/10 bg-surface/80 p-3 backdrop-blur-sm",
+        compact
+          ? "rounded-xl border border-white/10 bg-surface/80 p-2 backdrop-blur-sm"
+          : "rounded-2xl border border-white/10 bg-surface/80 p-3 backdrop-blur-sm",
         className,
       )}
     >
@@ -65,11 +98,17 @@ export function AudioPlayer({
       )}
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={toggle}
-          aria-label={playing ? "Pause" : "Lecture"}
-          className="grid size-11 shrink-0 place-items-center rounded-full bg-neon text-background"
+          aria-label={loading ? "Chargement" : playing ? "Pause" : "Lecture"}
+          className={cn(
+            "grid shrink-0 place-items-center rounded-full bg-neon text-background",
+            compact ? "size-9" : "size-11",
+          )}
         >
-          {playing ? (
+          {loading ? (
+            <span className="size-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+          ) : playing ? (
             <Pause className="size-5" fill="currentColor" />
           ) : (
             <Play className="size-5" fill="currentColor" />
@@ -85,7 +124,7 @@ export function AudioPlayer({
               const rect = e.currentTarget.getBoundingClientRect();
               el.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
             }}
-            className="h-10 cursor-pointer"
+            className={cn(compact ? "h-8" : "h-10", "cursor-pointer")}
           >
             <WaveformBars peaks={peaks(seed)} animated={playing} progress={progress} />
           </div>
@@ -95,7 +134,7 @@ export function AudioPlayer({
           </div>
         </div>
 
-        {canDownload ? (
+        {!compact && canDownload && (
           <a
             href={src}
             download={downloadName ?? true}
@@ -106,7 +145,8 @@ export function AudioPlayer({
           >
             <Download className="size-4" />
           </a>
-        ) : (
+        )}
+        {!compact && !canDownload && (
           <a
             href="/credits"
             aria-label="Débloquer le téléchargement"
@@ -122,13 +162,24 @@ export function AudioPlayer({
         ref={ref}
         src={src}
         preload="metadata"
+        crossOrigin="anonymous"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        className="hidden"
+        onError={() => {
+          setPlaying(false);
+          setLoading(false);
+          setError(true);
+        }}
+        className="sr-only"
       />
+      {error && (
+        <p className="mt-2 text-center text-[11px] text-danger">
+          Lecture indisponible pour l’instant. Réessaie dans un instant.
+        </p>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { PageTransition } from "@/components/studio/PageTransition";
 import { CoverArt } from "@/components/studio/CoverArt";
 import { WaveformBars } from "@/components/studio/WaveformBars";
 import { StatusBadge } from "@/components/studio/StatusBadge";
+import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ type DbProject = {
   tags: string[];
   created_at: string;
   progress: number;
+  audio_url: string | null;
 };
 
 export const Route = createFileRoute("/_authenticated/library")({
@@ -72,8 +74,9 @@ function LibraryPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress",
+          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url",
         )
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as DbProject[];
@@ -149,30 +152,30 @@ function LibraryPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((p) => (
-              <Link
-                key={p.id}
-                to="/library/$projectId"
-                params={{ projectId: p.id }}
-                className="group block"
-              >
-                <CoverArt
-                  gradient={p.cover_gradient ?? fallbackGradient}
-                  className="aspect-square rounded-2xl"
-                >
-                  <div className="absolute left-2 top-2">
-                    <StatusBadge status={p.status as "ready" | "rendering" | "draft"} />
+              <div key={p.id} className="min-w-0">
+                <Link to="/library/$projectId" params={{ projectId: p.id }} className="group block">
+                  <CoverArt
+                    gradient={p.cover_gradient ?? fallbackGradient}
+                    className="aspect-square rounded-2xl"
+                  >
+                    <div className="absolute left-2 top-2">
+                      <StatusBadge status={p.status as "ready" | "rendering" | "draft"} />
+                    </div>
+                    <div className="absolute inset-x-2 bottom-2 h-8">
+                      <WaveformBars peaks={wave(p.id)} animated={p.status === "rendering"} />
+                    </div>
+                  </CoverArt>
+                  <div className="mt-2 truncate text-sm font-semibold">{p.title}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+                    {p.genre ?? "—"} · {formatDuration(p.duration_seconds)}
                   </div>
-                  <div className="absolute inset-x-2 bottom-2 h-8">
-                    <WaveformBars peaks={wave(p.id)} animated={p.status === "rendering"} />
-                  </div>
-                </CoverArt>
-                <div className="mt-2 truncate text-sm font-semibold">{p.title}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-                  {p.genre ?? "—"} · {formatDuration(p.duration_seconds)}
-                </div>
-              </Link>
+                </Link>
+                {p.audio_url && p.status === "ready" && (
+                  <AudioPlayer src={p.audio_url} seed={p.id} compact className="mt-2" />
+                )}
+              </div>
             ))}
           </div>
         )}

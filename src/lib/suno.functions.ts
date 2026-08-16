@@ -20,6 +20,18 @@ function callbackUrl(kind: string) {
 }
 
 type AuthedClient = SupabaseClient<Database>;
+type GenerationJobUpdate = Database["public"]["Tables"]["generation_jobs"]["Update"];
+
+/**
+ * Generation jobs are server-owned accounting records. Updates must use the
+ * service client because the browser-facing role is intentionally read/insert
+ * only and must never be allowed to alter spend or provider state.
+ */
+async function updateGenerationJob(jobId: string, patch: GenerationJobUpdate) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin.from("generation_jobs").update(patch).eq("id", jobId);
+  if (error) throw error;
+}
 
 async function spend(
   supabase: AuthedClient,
@@ -103,10 +115,33 @@ async function refundGeneration(
     _project_id: projectId,
   });
   if (error) throw error;
-  await supabase
+  await updateGenerationJob(jobId, {
+    credits_refunded: amount,
+    refunded_at: new Date().toISOString(),
+  });
+}
+
+async function refundJobIfNeeded(
+  supabaseAdmin: AuthedClient,
+  taskId: string,
+  projectId: string,
+  reason: string,
+) {
+  const { data: job, error } = await supabaseAdmin
     .from("generation_jobs")
-    .update({ credits_refunded: amount, refunded_at: new Date().toISOString() })
-    .eq("id", jobId);
+    .select("id,user_id,project_id,credits_spent,credits_refunded")
+    .eq("suno_task_id", taskId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!job || job.credits_spent <= 0 || job.credits_refunded > 0) return;
+  await refundGeneration(
+    supabaseAdmin,
+    job.user_id,
+    job.credits_spent,
+    job.project_id ?? projectId,
+    job.id,
+    reason,
+  );
 }
 
 async function markGenerationFailed(
@@ -116,10 +151,7 @@ async function markGenerationFailed(
   message: string,
 ) {
   await Promise.all([
-    supabase
-      .from("generation_jobs")
-      .update({ status: "failed", error_message: message })
-      .eq("id", jobId),
+    updateGenerationJob(jobId, { status: "failed", error_message: message }),
     supabase
       .from("projects")
       .update({ status: "draft", progress: 0, error_message: message })
@@ -251,14 +283,11 @@ export const generateTrack = createServerFn({ method: "POST" })
         providerKind,
       );
       reservedCredits = cost;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: cost,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: cost,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { createSong } = await import("./suno.server");
       let taskId: string;
@@ -290,10 +319,7 @@ export const generateTrack = createServerFn({ method: "POST" })
       }
 
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", project.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
 
       return { projectId: project.id, taskId, creditsSpent: cost };
     } catch (error) {
@@ -387,14 +413,11 @@ export const extendTrack = createServerFn({ method: "POST" })
         "extend",
       );
       reservedCredits = COSTS.extend;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.extend,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.extend,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { extendSong } = await import("./suno.server");
       ({ taskId } = await extendSong({
@@ -409,10 +432,7 @@ export const extendTrack = createServerFn({ method: "POST" })
       }));
 
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
 
       return { projectId: child.id, taskId };
     } catch (err) {
@@ -464,14 +484,11 @@ export const separateStems = createServerFn({ method: "POST" })
         "stems",
       );
       reservedCredits = COSTS.stems;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.stems,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.stems,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
       const { createStemSeparation } = await import("./suno.server");
       const result = await createStemSeparation({
         taskId: project.suno_task_id,
@@ -484,10 +501,7 @@ export const separateStems = createServerFn({ method: "POST" })
         .from("projects")
         .update({ stems: { taskId, status: "processing" } })
         .eq("id", project.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Séparation des pistes impossible";
@@ -577,14 +591,11 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
         "vocals",
       );
       reservedCredits = COSTS.vocals;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.vocals,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.vocals,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { addVocals } = await import("./suno.server");
       const result = await addVocals({
@@ -597,10 +608,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
       });
       taskId = result.taskId;
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { projectId: child.id, taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Extension impossible";
@@ -695,14 +703,11 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         providerKind,
       );
       reservedCredits = cost;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: cost,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: cost,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { uploadAndCover } = await import("./suno.server");
       const result = await uploadAndCover({
@@ -717,10 +722,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
       });
       taskId = result.taskId;
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", project.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { projectId: project.id, taskId, creditsSpent: cost };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Remix impossible";
@@ -808,14 +810,11 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
         "add-instrumental",
       );
       reservedCredits = COSTS.addInstrumental;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.addInstrumental,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.addInstrumental,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { addInstrumental } = await import("./suno.server");
       const result = await addInstrumental({
@@ -827,10 +826,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
       });
       taskId = result.taskId;
       await supabase.from("projects").update({ suno_task_id: taskId }).eq("id", child.id);
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { projectId: child.id, taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ajout instrumental impossible";
@@ -893,14 +889,11 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
         "lyrics",
       );
       reservedCredits = COSTS.lyrics;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.lyrics,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.lyrics,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
 
       const { generateLyrics } = await import("./suno.server");
       const result = await generateLyrics({
@@ -908,10 +901,7 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("lyrics"),
       });
       taskId = result.taskId;
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Génération des paroles impossible";
@@ -971,14 +961,11 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
         "wav",
       );
       reservedCredits = COSTS.wav;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.wav,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.wav,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
       const { convertToWav } = await import("./suno.server");
       const result = await convertToWav({
         taskId: project.suno_task_id,
@@ -986,10 +973,7 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("wav"),
       });
       taskId = result.taskId;
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Export WAV impossible";
@@ -1048,14 +1032,11 @@ export const createProjectVideo = createServerFn({ method: "POST" })
         "video",
       );
       reservedCredits = COSTS.video;
-      await supabase
-        .from("generation_jobs")
-        .update({
-          credits_spent: COSTS.video,
-          provider_credits_spent: accounting.providerCredits,
-          provider_cost_usd: accounting.providerCostUsd,
-        })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.video,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
       const { createMusicVideo } = await import("./suno.server");
       const result = await createMusicVideo({
         taskId: project.suno_task_id,
@@ -1064,10 +1045,7 @@ export const createProjectVideo = createServerFn({ method: "POST" })
         callBackUrl: callbackUrl("video"),
       });
       taskId = result.taskId;
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "processing", suno_task_id: taskId })
-        .eq("id", claim.job.id);
+      await updateGenerationJob(claim.job.id, { status: "processing", suno_task_id: taskId });
       return { taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Création de la vidéo impossible";
@@ -1110,6 +1088,12 @@ export const syncProject = createServerFn({ method: "POST" })
       const clip = info.response?.sunoData?.[0];
 
       if (isTerminalFailure(info.status)) {
+        await refundJobIfNeeded(
+          supabaseAdmin,
+          project.suno_task_id,
+          project.id,
+          "Remboursement · génération échouée",
+        );
         await supabase
           .from("projects")
           .update({
@@ -1134,14 +1118,21 @@ export const syncProject = createServerFn({ method: "POST" })
         );
         if (!durableAudioUrl) {
           const message = "Le fichier audio n'a pas pu être conservé dans Loopster.";
+          await refundJobIfNeeded(
+            supabaseAdmin,
+            project.suno_task_id,
+            project.id,
+            "Remboursement · fichier audio indisponible",
+          );
           await supabase
             .from("projects")
             .update({ status: "draft", progress: 0, error_message: message })
             .eq("id", project.id);
-          await supabase
+          const { error: jobError } = await supabaseAdmin
             .from("generation_jobs")
             .update({ status: "failed", error_message: message })
             .eq("suno_task_id", project.suno_task_id);
+          if (jobError) throw jobError;
           changed = true;
           return { changed, status: "draft" };
         }

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -83,7 +83,14 @@ function CreatePage() {
   const [generating, setGenerating] = useState(false);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
 
-  const template = templates.find((t) => t.id === search.template) ?? templates[0];
+  const template =
+    templates.find((t) => t.id === search.template) ??
+    templates.find((t) => t.id === "song") ??
+    templates[0];
+
+  useEffect(() => {
+    setInstrumental(template.id === "instru");
+  }, [template.id]);
   const cost = instrumental ? COSTS.instrumental : COSTS.song;
   const enough = (profile?.credits ?? 0) >= cost;
 

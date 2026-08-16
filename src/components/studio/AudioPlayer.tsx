@@ -100,10 +100,12 @@ export function AudioPlayer({
         <button
           type="button"
           onClick={toggle}
+          disabled={loading}
           aria-label={loading ? "Chargement" : playing ? "Pause" : "Lecture"}
           className={cn(
             "grid shrink-0 place-items-center rounded-full bg-neon text-background",
             compact ? "size-9" : "size-11",
+            "disabled:cursor-wait disabled:opacity-70",
           )}
         >
           {loading ? (
@@ -162,7 +164,6 @@ export function AudioPlayer({
         ref={ref}
         src={src}
         preload="metadata"
-        crossOrigin="anonymous"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}

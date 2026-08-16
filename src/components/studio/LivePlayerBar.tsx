@@ -97,8 +97,9 @@ export function LivePlayerBar() {
       <button
         type="button"
         onClick={toggle}
+        disabled={loading}
         aria-label={loading ? "Chargement du morceau" : playing ? "Pause" : "Écouter"}
-        className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"
+        className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground disabled:cursor-wait disabled:opacity-70"
       >
         {loading ? (
           <Loader2 className="size-4 animate-spin" />
@@ -136,7 +137,6 @@ export function LivePlayerBar() {
         ref={audioRef}
         src={project.audio_url}
         preload="metadata"
-        crossOrigin="anonymous"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}

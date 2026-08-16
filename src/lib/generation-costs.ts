@@ -37,6 +37,7 @@ export const LOOPSTER_COSTS = {
   advancedStems: 134,
   fullStems: 334,
   video: 14,
+  cover: 0,
   replaceSection: 34,
 } as const;
 
@@ -58,5 +59,6 @@ export const PROVIDER_COST_BY_JOB_KIND: Record<string, number> = {
   "advanced-stems": SUNO_PROVIDER_COSTS.advancedSeparation,
   "full-stems": SUNO_PROVIDER_COSTS.fullSeparation,
   video: SUNO_PROVIDER_COSTS.video,
+  cover: SUNO_PROVIDER_COSTS.cover,
   "replace-section": SUNO_PROVIDER_COSTS.replaceSection,
 };

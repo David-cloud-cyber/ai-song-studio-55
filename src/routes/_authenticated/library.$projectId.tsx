@@ -18,6 +18,7 @@ import {
   generateProjectLyrics,
   convertProjectToWav,
   createProjectVideo,
+  createProjectCover,
   COSTS,
 } from "@/lib/suno.functions";
 import {
@@ -65,6 +66,7 @@ type Project = {
   is_favorite: boolean;
   progress: number;
   audio_url: string | null;
+  suno_task_id: string | null;
   suno_audio_id: string | null;
   instrumental: boolean;
   model: string | null;
@@ -117,7 +119,7 @@ function ProjectDetail() {
   const { projectId } = Route.useParams();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Audio");
   const [busy, setBusy] = useState<
-    null | "extend" | "stems" | "vocals" | "instrumental" | "lyrics" | "wav" | "video"
+    null | "extend" | "stems" | "vocals" | "instrumental" | "lyrics" | "wav" | "video" | "cover"
   >(null);
   const [publishing, setPublishing] = useState(false);
   const queryClient = useQueryClient();
@@ -130,6 +132,7 @@ function ProjectDetail() {
   const runLyrics = useServerFn(generateProjectLyrics);
   const runWav = useServerFn(convertProjectToWav);
   const runVideo = useServerFn(createProjectVideo);
+  const runCover = useServerFn(createProjectCover);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -227,7 +230,7 @@ function ProjectDetail() {
   };
 
   const runDerived = async (
-    kind: "vocals" | "instrumental" | "lyrics" | "wav" | "video",
+    kind: "vocals" | "instrumental" | "lyrics" | "wav" | "video" | "cover",
     action: () => Promise<unknown>,
     message: string,
   ) => {
@@ -297,6 +300,13 @@ function ProjectDetail() {
       "video",
       () => runVideo({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
       "Création vidéo lancée",
+    );
+
+  const doCover = () =>
+    runDerived(
+      "cover",
+      () => runCover({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
+      "La nouvelle pochette est en préparation",
     );
 
   const toggleFavorite = async () => {
@@ -512,6 +522,18 @@ function ProjectDetail() {
                 <Music className="size-3.5" />
               )}
               Ajouter instru · {COSTS.addInstrumental} CR
+            </button>
+            <button
+              onClick={doCover}
+              disabled={!project.suno_task_id || Boolean(cover) || busy !== null}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
+            >
+              {busy === "cover" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Wand2 className="size-3.5" />
+              )}
+              Pochette
             </button>
           </div>
 

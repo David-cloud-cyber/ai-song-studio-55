@@ -16,8 +16,17 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const generate = useServerFn(generateTrack);
+
+  const toggleChip = (chip: string) => {
+    setActive((current) =>
+      current.includes(chip) ? current.filter((item) => item !== chip) : [...current, chip],
+    );
+    if (!value.trim()) {
+      setValue(`Crée un morceau ${chip.toLowerCase()}`);
+    }
+  };
 
   const submit = async () => {
     const prompt = value.trim();
@@ -81,11 +90,8 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
             <button
               key={chip}
               type="button"
-              onClick={() =>
-                setActive((current) =>
-                  selected ? current.filter((item) => item !== chip) : [...current, chip],
-                )
-              }
+              onClick={() => toggleChip(chip)}
+              aria-pressed={selected}
               className={cn(
                 "shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em]",
                 selected
@@ -115,8 +121,15 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
         />
         <button
           type="submit"
-          disabled={!value.trim() || busy || (profile?.credits ?? 0) < COSTS.song}
+          disabled={!value.trim() || busy || profileLoading || (profile?.credits ?? 0) < COSTS.song}
           className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          title={
+            profileLoading
+              ? "Préparation de ton espace…"
+              : !value.trim()
+                ? "Écris une idée ou choisis un style"
+                : "Créer le morceau"
+          }
           aria-label={busy ? "Création en cours" : "Créer le morceau"}
         >
           <ArrowUp className="size-4" strokeWidth={2.6} />

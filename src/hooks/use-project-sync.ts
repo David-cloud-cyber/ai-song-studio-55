@@ -23,6 +23,8 @@ export function useProjectSync(projectId: string | undefined, active: boolean) {
         const res = await sync({ data: { projectId } });
         if (!cancelled && res?.changed) {
           queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["editor-project", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["generation-jobs", projectId] });
           queryClient.invalidateQueries({ queryKey: ["projects"] });
         }
       } catch {

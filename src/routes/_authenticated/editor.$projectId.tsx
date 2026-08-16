@@ -1,16 +1,28 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Download, FileAudio, Film, Loader2, ListMusic, Wand2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  FileAudio,
+  Film,
+  ListMusic,
+  Loader2,
+  Mic2,
+  Wand2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { isPaidPlan } from "@/lib/plans";
 import {
   COSTS,
+  addInstrumentalToProject,
+  addVocalsToProject,
   convertProjectToWav,
+  createProjectCover,
   createProjectVideo,
   extendTrack,
   generateProjectLyrics,
@@ -19,6 +31,7 @@ import {
 import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { CoverArt } from "@/components/studio/CoverArt";
+import { useProjectSync } from "@/hooks/use-project-sync";
 
 export const Route = createFileRoute("/_authenticated/editor/$projectId")({
   head: () => ({
@@ -48,6 +61,9 @@ function EditorPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const runExtend = useServerFn(extendTrack);
   const runStems = useServerFn(separateStems);
+  const runVocals = useServerFn(addVocalsToProject);
+  const runInstrumental = useServerFn(addInstrumentalToProject);
+  const runCover = useServerFn(createProjectCover);
   const runLyrics = useServerFn(generateProjectLyrics);
   const runWav = useServerFn(convertProjectToWav);
   const runVideo = useServerFn(createProjectVideo);
@@ -58,7 +74,7 @@ function EditorPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id",
+          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id,error_message",
         )
         .eq("id", projectId)
         .maybeSingle();
@@ -73,6 +89,37 @@ function EditorPage() {
         : false,
   });
 
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["generation-jobs", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generation_jobs")
+        .select("kind,status,error_message")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Array<{ kind: string; status: string; error_message: string | null }>;
+    },
+    refetchInterval: (query) =>
+      (query.state.data as Array<{ status: string }> | undefined)?.some(
+        (job) => job.status === "pending" || job.status === "processing",
+      )
+        ? 4000
+        : false,
+  });
+
+  useEffect(() => {
+    if (jobs.some((job) => job.status === "pending" || job.status === "processing")) {
+      void queryClient.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    }
+  }, [jobs, projectId, queryClient]);
+
+  const projectStems = (project?.stems as StemState | null) ?? null;
+  useProjectSync(
+    project?.id,
+    project?.status === "rendering" || projectStems?.status === "processing",
+  );
+
   if (isLoading || !project) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">
@@ -81,7 +128,12 @@ function EditorPage() {
     );
   }
 
-  const stems = (project.stems as StemState | null) ?? null;
+  const stems = projectStems;
+  const latestJob = (kind: string) => jobs.find((job) => job.kind === kind);
+  const jobIsRunning = (kind: string) => {
+    const status = latestJob(kind)?.status;
+    return status === "pending" || status === "processing";
+  };
   const cover = project.image_url ?? project.cover_url;
   const gradient = project.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700";
   const duration = project.duration_seconds
@@ -139,6 +191,19 @@ function EditorPage() {
                 : "Brouillon"}
           </span>
         </div>
+
+        {project.error_message && (
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger-foreground">
+            <p className="font-semibold">Cette action n’a pas abouti.</p>
+            <p className="mt-1 text-danger-foreground/80">{project.error_message}</p>
+            <Link
+              to="/create"
+              className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-danger/30 px-3 text-xs font-semibold text-danger-foreground"
+            >
+              Recommencer une création
+            </Link>
+          </div>
+        )}
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
@@ -228,15 +293,61 @@ function EditorPage() {
                   }
                 />
                 <ActionCard
+                  icon={<Mic2 className="size-4" />}
+                  title="Ajouter une voix"
+                  description={`${COSTS.vocals} crédits · crée une version chantée`}
+                  busy={busy === "vocals"}
+                  disabled={!project.audio_url}
+                  onClick={() =>
+                    run(
+                      "vocals",
+                      async () => {
+                        const result = await runVocals({
+                          data: {
+                            projectId: project.id,
+                            prompt: project.prompt ?? `Voix expressive pour ${project.title}`,
+                            requestId: crypto.randomUUID(),
+                          },
+                        });
+                        window.location.href = `/library/${result.projectId}`;
+                      },
+                      "L’ajout de voix est en préparation",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<FileAudio className="size-4" />}
+                  title="Ajouter un instrumental"
+                  description={`${COSTS.addInstrumental} crédits · crée une version instru`}
+                  busy={busy === "instrumental"}
+                  disabled={!project.audio_url}
+                  onClick={() =>
+                    run(
+                      "instrumental",
+                      async () => {
+                        const result = await runInstrumental({
+                          data: { projectId: project.id, requestId: crypto.randomUUID() },
+                        });
+                        window.location.href = `/library/${result.projectId}`;
+                      },
+                      "L’instrumental est en préparation",
+                    )
+                  }
+                />
+                <ActionCard
                   icon={<FileAudio className="size-4" />}
                   title="Préparer un WAV"
                   description={
-                    project.wav_url
-                      ? "Fichier WAV disponible"
-                      : `${COSTS.wav} crédits · export haute qualité`
+                    jobIsRunning("wav")
+                      ? "Préparation en cours…"
+                      : project.wav_url
+                        ? "Fichier WAV disponible"
+                        : `${COSTS.wav} crédits · export haute qualité`
                   }
-                  busy={busy === "wav"}
-                  disabled={!project.suno_audio_id || Boolean(project.wav_url)}
+                  busy={busy === "wav" || jobIsRunning("wav")}
+                  disabled={
+                    !project.suno_audio_id || Boolean(project.wav_url) || jobIsRunning("wav")
+                  }
                   onClick={() =>
                     run(
                       "wav",
@@ -247,15 +358,46 @@ function EditorPage() {
                   }
                 />
                 <ActionCard
+                  icon={<Wand2 className="size-4" />}
+                  title="Créer une pochette"
+                  description={
+                    jobIsRunning("cover")
+                      ? "Préparation en cours…"
+                      : project.image_url || project.cover_url
+                        ? "Pochette disponible"
+                        : "Gratuit · 2 styles visuels"
+                  }
+                  busy={jobIsRunning("cover")}
+                  disabled={
+                    !project.suno_task_id ||
+                    Boolean(project.image_url || project.cover_url) ||
+                    jobIsRunning("cover")
+                  }
+                  onClick={() =>
+                    run(
+                      "cover",
+                      () =>
+                        runCover({
+                          data: { projectId: project.id, requestId: crypto.randomUUID() },
+                        }),
+                      "La pochette est en préparation",
+                    )
+                  }
+                />
+                <ActionCard
                   icon={<Film className="size-4" />}
                   title="Créer une vidéo"
                   description={
-                    project.video_url
-                      ? "Vidéo disponible"
-                      : `${COSTS.video} crédits · clip synchronisé`
+                    jobIsRunning("video")
+                      ? "Préparation en cours…"
+                      : project.video_url
+                        ? "Vidéo disponible"
+                        : `${COSTS.video} crédits · clip synchronisé`
                   }
-                  busy={busy === "video"}
-                  disabled={!project.suno_audio_id || Boolean(project.video_url)}
+                  busy={busy === "video" || jobIsRunning("video")}
+                  disabled={
+                    !project.suno_audio_id || Boolean(project.video_url) || jobIsRunning("video")
+                  }
                   onClick={() =>
                     run(
                       "video",

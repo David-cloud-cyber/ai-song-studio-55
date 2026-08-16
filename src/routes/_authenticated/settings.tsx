@@ -15,9 +15,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { soon } from "@/lib/toast";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -37,6 +36,44 @@ function SettingsPage() {
   const [collab, setCollab] = useState(true);
   const [autoplay, setAutoplay] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [handleDraft, setHandleDraft] = useState("");
+  const [preferencesReady, setPreferencesReady] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    setPreferencesReady(false);
+    setNameDraft(profile.display_name ?? "");
+    setHandleDraft(profile.handle ?? "");
+    try {
+      const stored = window.localStorage.getItem(`loopster-preferences:${profile.id}`);
+      if (!stored) {
+        setPreferencesReady(true);
+        return;
+      }
+      const preferences = JSON.parse(stored) as Partial<{
+        notif: boolean;
+        collab: boolean;
+        autoplay: boolean;
+      }>;
+      if (typeof preferences.notif === "boolean") setNotif(preferences.notif);
+      if (typeof preferences.collab === "boolean") setCollab(preferences.collab);
+      if (typeof preferences.autoplay === "boolean") setAutoplay(preferences.autoplay);
+    } catch {
+      // Les préférences locales restent facultatives si le stockage est indisponible.
+    }
+    setPreferencesReady(true);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || !preferencesReady) return;
+    window.localStorage.setItem(
+      `loopster-preferences:${profile.id}`,
+      JSON.stringify({ notif, collab, autoplay }),
+    );
+  }, [autoplay, collab, notif, preferencesReady, profile]);
 
   const signOut = async () => {
     setSigningOut(true);
@@ -50,6 +87,46 @@ function SettingsPage() {
         description: "On garde ta session ouverte pour le moment.",
       });
       setSigningOut(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!profile) return;
+    const displayName = nameDraft.trim().replace(/\s+/g, " ");
+    const handle = handleDraft.trim().replace(/^@+/, "").toLowerCase();
+    if (displayName.length < 2 || displayName.length > 60) {
+      toast.error("Ton nom doit contenir entre 2 et 60 caractères.");
+      return;
+    }
+    if (handle && !/^[a-z0-9_-]{2,30}$/.test(handle)) {
+      toast.error("Ton identifiant doit contenir 2 à 30 lettres, chiffres, tirets ou underscores.");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const initials = displayName
+        .split(" ")
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ display_name: displayName, handle: handle || null, initials })
+        .eq("id", profile.id);
+      if (error) {
+        if (error.code === "23505") throw new Error("Cet identifiant est déjà pris.");
+        throw error;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setEditingProfile(false);
+      toast.success("Profil mis à jour ✨");
+    } catch (error) {
+      toast.error("Impossible de mettre à jour ton profil", {
+        description: error instanceof Error ? error.message : "Réessaie dans un instant.",
+      });
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -71,16 +148,56 @@ function SettingsPage() {
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{displayName}</div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-              {profile?.handle ?? "@studio"} · {profile?.plan === "pro" ? "Studio Pro" : "Studio Free"}
+              {profile?.handle ? `@${profile.handle.replace(/^@+/, "")}` : "@studio"} ·{" "}
+              {profile?.plan === "pro"
+                ? "Studio Pro"
+                : profile?.plan === "premier"
+                  ? "Studio Premier"
+                  : "Studio Free"}
             </div>
           </div>
           <button
-            onClick={() => soon("Édition profil bientôt disponible")}
+            onClick={() => {
+              setNameDraft(profile?.display_name ?? "");
+              setHandleDraft(profile?.handle ?? "");
+              setEditingProfile((value) => !value);
+            }}
             className="rounded-full bg-white/5 px-3 py-1.5 text-xs"
           >
-            Éditer
+            {editingProfile ? "Fermer" : "Éditer"}
           </button>
         </div>
+        {editingProfile && (
+          <div className="mt-3 grid gap-3 rounded-2xl border border-neon/20 bg-neon/5 p-4 sm:grid-cols-[1fr_0.8fr_auto] sm:items-end">
+            <label className="grid gap-1.5 text-xs text-zinc-400">
+              Nom affiché
+              <input
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                autoComplete="name"
+                className="min-h-11 rounded-xl border border-white/10 bg-background/50 px-3 text-sm text-foreground outline-none focus:border-neon"
+              />
+            </label>
+            <label className="grid gap-1.5 text-xs text-zinc-400">
+              Identifiant
+              <input
+                value={handleDraft}
+                onChange={(event) => setHandleDraft(event.target.value)}
+                autoComplete="username"
+                placeholder="mon-nom"
+                className="min-h-11 rounded-xl border border-white/10 bg-background/50 px-3 text-sm text-foreground outline-none focus:border-neon"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={saveProfile}
+              disabled={savingProfile}
+              className="min-h-11 rounded-xl bg-neon px-4 text-sm font-semibold text-background disabled:opacity-50"
+            >
+              {savingProfile ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="px-5 pt-6">
@@ -108,13 +225,13 @@ function SettingsPage() {
           <ActionRow
             icon={<Shield className="size-4" />}
             label="Confidentialité"
-            onClick={() => soon()}
+            onClick={() => navigate({ to: "/privacy" })}
           />
           <ActionRow
             icon={<Globe className="size-4" />}
             label="Langue"
             hint="Français"
-            onClick={() => soon()}
+            onClick={() => toast("Loopster est pour l'instant en français.")}
           />
         </Group>
       </section>
@@ -128,7 +245,7 @@ function SettingsPage() {
           <LogOut className="size-4" /> {signingOut ? "Déconnexion…" : "Se déconnecter"}
         </button>
         <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-widest text-zinc-600">
-          Loopster · v0.1 · phase 1
+          Loopster · ton studio musical
         </p>
       </section>
     </PageTransition>

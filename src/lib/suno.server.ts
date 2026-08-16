@@ -129,7 +129,10 @@ export function uploadAndCover(payload: {
   negativeTags?: string;
   callBackUrl: string;
 }) {
-  return sunoRequest<{ taskId: string }>("/generate/upload-cover", { method: "POST", body: payload });
+  return sunoRequest<{ taskId: string }>("/generate/upload-cover", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function uploadAndExtend(payload: {
@@ -143,7 +146,10 @@ export function uploadAndExtend(payload: {
   continueAt?: number;
   callBackUrl: string;
 }) {
-  return sunoRequest<{ taskId: string }>("/generate/upload-extend", { method: "POST", body: payload });
+  return sunoRequest<{ taskId: string }>("/generate/upload-extend", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function addVocals(payload: {
@@ -188,6 +194,13 @@ export function createMusicVideo(payload: {
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/mp4/generate", { method: "POST", body: payload });
+}
+
+export function createMusicCover(payload: { taskId: string; callBackUrl: string }) {
+  return sunoRequest<{ taskId: string }>("/suno/cover/generate", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export function getStemInfo(taskId: string) {

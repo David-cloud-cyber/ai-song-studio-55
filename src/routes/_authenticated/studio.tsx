@@ -151,7 +151,7 @@ function Studio() {
               icon: AudioLines,
             },
             {
-              id: "instrumental",
+              id: "instru",
               title: "Instrumental",
               description: "Beat et texture",
               icon: Mic2,

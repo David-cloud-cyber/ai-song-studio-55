@@ -25,6 +25,7 @@ type CallbackBody = {
       instrumental_url?: string | null;
       vocal_url?: string | null;
     };
+    images?: string[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -246,6 +247,44 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                   instrumentalUrl: vocal.instrumental_url ?? null,
                 },
               })
+              .eq("id", job.id);
+          }
+          return new Response("ok");
+        }
+
+        if (job && job.kind === "cover") {
+          const coverUrl = body.data?.images?.find((value) => typeof value === "string") ?? null;
+          if (coverUrl && job.project_id) {
+            const durableCoverUrl = await persistGeneratedAsset(
+              supabaseAdmin,
+              coverUrl,
+              `${job.user_id}/${job.project_id}/cover-generated.jpg`,
+              "image/jpeg",
+            );
+            if (!durableCoverUrl) {
+              await refundFailedJob();
+              await supabaseAdmin
+                .from("generation_jobs")
+                .update({
+                  status: "failed",
+                  error_message: "La pochette n'a pas pu être conservée.",
+                })
+                .eq("id", job.id);
+              return new Response("Storage unavailable", { status: 503 });
+            }
+            await supabaseAdmin
+              .from("projects")
+              .update({ image_url: durableCoverUrl, cover_url: durableCoverUrl })
+              .eq("id", job.project_id);
+            await supabaseAdmin
+              .from("generation_jobs")
+              .update({ status: "completed", result: { coverUrl: durableCoverUrl } })
+              .eq("id", job.id);
+          } else if (body.code !== undefined && body.code !== 200) {
+            await refundFailedJob();
+            await supabaseAdmin
+              .from("generation_jobs")
+              .update({ status: "failed", error_message: body.msg ?? "Échec de la pochette" })
               .eq("id", job.id);
           }
           return new Response("ok");

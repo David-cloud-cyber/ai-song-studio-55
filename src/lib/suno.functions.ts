@@ -144,6 +144,28 @@ async function refundJobIfNeeded(
   );
 }
 
+async function failProviderJob(
+  supabaseAdmin: AuthedClient,
+  taskId: string,
+  projectId: string,
+  message: string,
+) {
+  await refundJobIfNeeded(supabaseAdmin, taskId, projectId, `Remboursement · ${message}`);
+  const { error } = await supabaseAdmin
+    .from("generation_jobs")
+    .update({ status: "failed", error_message: message })
+    .eq("suno_task_id", taskId);
+  if (error) throw error;
+}
+
+async function completeProviderJob(supabaseAdmin: AuthedClient, taskId: string, result: Json) {
+  const { error } = await supabaseAdmin
+    .from("generation_jobs")
+    .update({ status: "completed", result })
+    .eq("suno_task_id", taskId);
+  if (error) throw error;
+}
+
 async function markGenerationFailed(
   supabase: AuthedClient,
   jobId: string,
@@ -436,7 +458,18 @@ export const extendTrack = createServerFn({ method: "POST" })
 
       return { projectId: child.id, taskId };
     } catch (err) {
-      await supabase.from("projects").delete().eq("id", child.id);
+      const message = err instanceof Error ? err.message : "Extension impossible";
+      if (reservedCredits > 0 && !taskId) {
+        await refundGeneration(
+          supabase,
+          userId,
+          reservedCredits,
+          child.id,
+          claim.job.id,
+          `Remboursement · ${message}`,
+        );
+      }
+      await markGenerationFailed(supabase, claim.job.id, child.id, message);
       throw err;
     }
   });
@@ -1063,6 +1096,56 @@ export const createProjectVideo = createServerFn({ method: "POST" })
     }
   });
 
+/** Génère une nouvelle pochette à partir du morceau terminé. */
+export const createProjectCover = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: project, error } = await supabase
+      .from("projects")
+      .select("id,title,suno_task_id,image_url,cover_url")
+      .eq("id", data.projectId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!project?.suno_task_id) throw new Error("Le morceau doit être terminé avant sa pochette.");
+    if (project.image_url || project.cover_url) {
+      throw new Error("Une pochette existe déjà pour ce morceau.");
+    }
+
+    const claim = await claimGenerationJob(
+      supabase,
+      userId,
+      project.id,
+      "cover",
+      data.requestId ?? crypto.randomUUID(),
+      PROVIDER_COST_BY_JOB_KIND.cover,
+      { sourceTaskId: project.suno_task_id },
+    );
+    if (claim.existing) return { taskId: claim.job.suno_task_id ?? "" };
+
+    try {
+      const { createMusicCover } = await import("./suno.server");
+      const result = await createMusicCover({
+        taskId: project.suno_task_id,
+        callBackUrl: callbackUrl("cover"),
+      });
+      await updateGenerationJob(claim.job.id, {
+        status: "processing",
+        suno_task_id: result.taskId,
+      });
+      return { taskId: result.taskId };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Pochette impossible";
+      await updateGenerationJob(claim.job.id, { status: "failed", error_message: message });
+      throw err;
+    }
+  });
+
 /** Rafraîchit l'état d'un projet depuis Suno (polling). */
 export const syncProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1088,18 +1171,14 @@ export const syncProject = createServerFn({ method: "POST" })
       const clip = info.response?.sunoData?.[0];
 
       if (isTerminalFailure(info.status)) {
-        await refundJobIfNeeded(
-          supabaseAdmin,
-          project.suno_task_id,
-          project.id,
-          "Remboursement · génération échouée",
-        );
+        const message = info.errorMessage ?? `Échec Suno (${info.status})`;
+        await failProviderJob(supabaseAdmin, project.suno_task_id, project.id, message);
         await supabase
           .from("projects")
           .update({
             status: "draft",
             progress: 0,
-            error_message: info.errorMessage ?? `Échec Suno (${info.status})`,
+            error_message: message,
           })
           .eq("id", project.id);
         changed = true;
@@ -1118,21 +1197,11 @@ export const syncProject = createServerFn({ method: "POST" })
         );
         if (!durableAudioUrl) {
           const message = "Le fichier audio n'a pas pu être conservé dans Loopster.";
-          await refundJobIfNeeded(
-            supabaseAdmin,
-            project.suno_task_id,
-            project.id,
-            "Remboursement · fichier audio indisponible",
-          );
+          await failProviderJob(supabaseAdmin, project.suno_task_id, project.id, message);
           await supabase
             .from("projects")
             .update({ status: "draft", progress: 0, error_message: message })
             .eq("id", project.id);
-          const { error: jobError } = await supabaseAdmin
-            .from("generation_jobs")
-            .update({ status: "failed", error_message: message })
-            .eq("suno_task_id", project.suno_task_id);
-          if (jobError) throw jobError;
           changed = true;
           return { changed, status: "draft" };
         }
@@ -1150,6 +1219,10 @@ export const syncProject = createServerFn({ method: "POST" })
             error_message: null,
           })
           .eq("id", project.id);
+        await completeProviderJob(supabaseAdmin, project.suno_task_id, {
+          audioUrl: durableAudioUrl,
+          imageUrl: durableImageUrl,
+        });
         changed = true;
       } else {
         const progress =
@@ -1162,10 +1235,12 @@ export const syncProject = createServerFn({ method: "POST" })
     if (stems?.taskId && stems.status === "processing") {
       const stemInfo = await getStemInfo(stems.taskId);
       if (isTerminalFailure(stemInfo.status)) {
+        const message = stemInfo.errorMessage ?? stemInfo.status;
+        await failProviderJob(supabaseAdmin, stems.taskId, project.id, message);
         await supabase
           .from("projects")
           .update({
-            stems: { ...stems, status: "failed", error: stemInfo.errorMessage ?? stemInfo.status },
+            stems: { ...stems, status: "failed", error: message },
           })
           .eq("id", project.id);
         changed = true;
@@ -1200,6 +1275,11 @@ export const syncProject = createServerFn({ method: "POST" })
             },
           })
           .eq("id", project.id);
+        await completeProviderJob(supabaseAdmin, stems.taskId, {
+          vocalUrl: durableVocalUrl,
+          instrumentalUrl: durableInstrumentalUrl,
+          originUrl: durableOriginUrl,
+        });
         changed = true;
       }
     }

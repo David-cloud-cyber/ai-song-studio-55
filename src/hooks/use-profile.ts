@@ -17,6 +17,8 @@ export type Profile = {
   credits: number;
   plan: string;
   subscription_status: string;
+  subscription_expires_at: string | null;
+  subscription_source: string;
 };
 
 export function useProfile() {

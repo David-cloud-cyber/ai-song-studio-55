@@ -42,6 +42,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
           instrumental: false,
           customMode: true,
           model: "V4_5",
+          requestId: crypto.randomUUID(),
         },
       });
       await Promise.all([

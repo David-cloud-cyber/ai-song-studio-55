@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +54,7 @@ function CreditsPage() {
   const { user } = useSession();
   const { data: profile } = useProfile();
   const search = Route.useSearch();
+  const queryClient = useQueryClient();
   const startCheckout = useServerFn(createFapshiCheckout);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const credits = profile?.credits ?? 0;
@@ -63,12 +64,52 @@ function CreditsPage() {
   const pct = Math.min(100, Math.round((credits / max) * 100));
   const selectedPlan = search.plan ? getPricingPlan(search.plan) : null;
   const selectedCycle: BillingCycle = search.cycle ?? "monthly";
+  const [paymentPolling, setPaymentPolling] = useState(search.payment === "return");
 
   useEffect(() => {
     if (selectedPlan) {
       trackEvent("checkout_viewed", { plan: selectedPlan.id, cycle: selectedCycle });
     }
   }, [selectedPlan, selectedCycle]);
+
+  useEffect(() => {
+    setPaymentPolling(search.payment === "return");
+    if (search.payment !== "return") return;
+    const timeout = window.setTimeout(() => setPaymentPolling(false), 30_000);
+    return () => window.clearTimeout(timeout);
+  }, [search.payment]);
+
+  const { data: paymentOrder } = useQuery({
+    queryKey: ["latest-payment-order", user?.id],
+    enabled: Boolean(user && search.payment === "return"),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_orders")
+        .select("id,plan,cycle,amount_xaf,status,provider_status,expires_at,created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return paymentPolling && status !== "paid" && status !== "failed" ? 3000 : false;
+    },
+  });
+
+  useEffect(() => {
+    if (paymentOrder?.status === "paid") {
+      setPaymentPolling(false);
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+      trackEvent("payment_success", { plan: paymentOrder.plan, cycle: paymentOrder.cycle });
+    }
+    if (paymentOrder?.status === "failed") {
+      setPaymentPolling(false);
+      trackEvent("payment_failed", { plan: paymentOrder.plan, cycle: paymentOrder.cycle });
+    }
+  }, [paymentOrder, queryClient]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["credit-transactions", user?.id],
@@ -108,7 +149,9 @@ function CreditsPage() {
         <div className="rounded-3xl border border-neon/20 bg-gradient-to-br from-neon/10 via-surface to-surface p-5">
           <div className="flex items-baseline gap-2">
             <span className="text-5xl font-semibold tracking-tight">{credits}</span>
-            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">/ {max} CR</span>
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">
+              / {max} CR
+            </span>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
             <div
@@ -117,7 +160,9 @@ function CreditsPage() {
             />
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-            <span>{currentOffer.name} · {currentOffer.creationsLabel}</span>
+            <span>
+              {currentOffer.name} · {currentOffer.creationsLabel}
+            </span>
             <span>Mis à jour à l'instant</span>
           </div>
         </div>
@@ -135,12 +180,17 @@ function CreditsPage() {
                 <p className="mt-1 text-sm text-zinc-400">{selectedPlan.audience}</p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-semibold">{formatXaf(getPriceXaf(selectedPlan, selectedCycle))}</div>
+                <div className="text-2xl font-semibold">
+                  {formatXaf(getPriceXaf(selectedPlan, selectedCycle))}
+                </div>
                 <div className="text-xs text-zinc-500">pour {cycleLabel(selectedCycle)}</div>
               </div>
             </div>
             <div className="mt-5 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
-              <SummaryRow label="Crédits inclus" value={selectedPlan.credits.toLocaleString("fr-FR")} />
+              <SummaryRow
+                label="Crédits inclus"
+                value={selectedPlan.credits.toLocaleString("fr-FR")}
+              />
               <SummaryRow label="Résultat attendu" value={selectedPlan.creationsLabel} />
               <SummaryRow label="Droits commerciaux" value="Inclus" />
               <SummaryRow label="Renouvellement" value="Manuel" />
@@ -172,8 +222,21 @@ function CreditsPage() {
 
       {search.payment === "return" && (
         <section className="px-5 pt-6">
-          <div className="rounded-2xl border border-amber-300/20 bg-amber-300/5 px-4 py-3 text-sm text-amber-100">
-            Ton paiement est en cours de vérification. La formule sera activée dès sa confirmation.
+          <div
+            className={cn(
+              "rounded-2xl border px-4 py-3 text-sm",
+              paymentOrder?.status === "paid"
+                ? "border-emerald-300/20 bg-emerald-300/5 text-emerald-100"
+                : paymentOrder?.status === "failed"
+                  ? "border-rose-300/20 bg-rose-300/5 text-rose-100"
+                  : "border-amber-300/20 bg-amber-300/5 text-amber-100",
+            )}
+          >
+            {paymentOrder?.status === "paid"
+              ? "Paiement confirmé ! Ta formule et tes crédits sont maintenant actifs."
+              : paymentOrder?.status === "failed"
+                ? "Le paiement n'a pas été confirmé. Tu peux choisir une nouvelle fois ta formule."
+                : "Ton paiement est en cours de vérification. La formule sera activée dès sa confirmation."}
           </div>
         </section>
       )}
@@ -182,7 +245,11 @@ function CreditsPage() {
         <SectionHeader
           eyebrow="Formules"
           title="Crée à ton rythme"
-          action={<span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">Sans coût caché</span>}
+          action={
+            <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+              Sans coût caché
+            </span>
+          }
         />
         <div className="grid gap-3 md:grid-cols-3">
           {PRICING_PLANS.map((plan) => (
@@ -203,7 +270,9 @@ function CreditsPage() {
       </section>
 
       <section className="px-5 pt-8">
-        <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">Historique</h3>
+        <h3 className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-neon/70">
+          Historique
+        </h3>
         {transactions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-400">
             Aucun mouvement pour l'instant.
@@ -218,8 +287,14 @@ function CreditsPage() {
                     {new Date(tx.created_at).toLocaleString("fr-FR")}
                   </div>
                 </div>
-                <span className={cn("shrink-0 font-mono text-sm", tx.amount >= 0 ? "text-emerald-400" : "text-neon")}>
-                  {tx.amount >= 0 ? "+" : ""}{tx.amount}
+                <span
+                  className={cn(
+                    "shrink-0 font-mono text-sm",
+                    tx.amount >= 0 ? "text-emerald-400" : "text-neon",
+                  )}
+                >
+                  {tx.amount >= 0 ? "+" : ""}
+                  {tx.amount}
                 </span>
               </li>
             ))}
@@ -241,13 +316,24 @@ function PlanCard({
 }) {
   const price = getPriceXaf(plan, "monthly");
   return (
-    <article className={cn("rounded-2xl border p-5", plan.id === "pro" ? "border-neon/40 bg-neon/5 ring-1 ring-neon/20" : "border-white/5 bg-surface")}>
+    <article
+      className={cn(
+        "rounded-2xl border p-5",
+        plan.id === "pro"
+          ? "border-neon/40 bg-neon/5 ring-1 ring-neon/20"
+          : "border-white/5 bg-surface",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">{plan.name}</h3>
           <p className="mt-1 text-sm text-zinc-400">{plan.audience}</p>
         </div>
-        {plan.badge && <span className="rounded-full bg-neon/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">{plan.badge}</span>}
+        {plan.badge && (
+          <span className="rounded-full bg-neon/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-neon">
+            {plan.badge}
+          </span>
+        )}
       </div>
       <div className="mt-4 flex items-baseline gap-1">
         <span className="text-2xl font-semibold">{price === 0 ? "Gratuit" : formatXaf(price)}</span>
@@ -255,20 +341,34 @@ function PlanCard({
       </div>
       <div className="mt-1 text-sm font-medium text-neon">{plan.creationsLabel}</div>
       <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-        {plan.features.filter((feature) => feature.included).slice(0, 5).map((feature) => (
-          <li key={feature.label} className="flex items-start gap-2">
-            <Check className="mt-0.5 size-4 shrink-0 text-neon" />
-            <span>{feature.label}</span>
-          </li>
-        ))}
+        {plan.features
+          .filter((feature) => feature.included)
+          .slice(0, 5)
+          .map((feature) => (
+            <li key={feature.label} className="flex items-start gap-2">
+              <Check className="mt-0.5 size-4 shrink-0 text-neon" />
+              <span>{feature.label}</span>
+            </li>
+          ))}
       </ul>
       <button
         type="button"
         onClick={() => onChoose(plan.id)}
         disabled={current}
-        className={cn("mt-5 min-h-11 w-full rounded-xl py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon", current ? "bg-white/5 text-zinc-500" : plan.id === "pro" ? "bg-neon text-background" : "border border-white/10 bg-surface-2 text-foreground")}
+        className={cn(
+          "mt-5 min-h-11 w-full rounded-xl py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon",
+          current
+            ? "bg-white/5 text-zinc-500"
+            : plan.id === "pro"
+              ? "bg-neon text-background"
+              : "border border-white/10 bg-surface-2 text-foreground",
+        )}
       >
-        {current ? "Formule actuelle" : plan.id === "free" ? "Garder Gratuit" : `Choisir ${plan.name}`}
+        {current
+          ? "Formule actuelle"
+          : plan.id === "free"
+            ? "Garder Gratuit"
+            : `Choisir ${plan.name}`}
       </button>
     </article>
   );

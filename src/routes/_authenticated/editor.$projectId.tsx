@@ -1,32 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { notFound } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, Download, FileAudio, Film, Loader2, ListMusic, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { isPaidPlan } from "@/lib/plans";
-import { stems, timelineClips } from "@/data/mock";
-import { PageTransition } from "@/components/studio/PageTransition";
-import { WaveformBars } from "@/components/studio/WaveformBars";
-import { CoverArt } from "@/components/studio/CoverArt";
-import { AudioPlayer } from "@/components/studio/AudioPlayer";
-import { soon } from "@/lib/toast";
 import {
-  ArrowLeft,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  Sliders,
-  Save,
-  Download,
-  Wand2,
-  Scissors,
-  Copy,
-  Trash2,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  COSTS,
+  convertProjectToWav,
+  createProjectVideo,
+  extendTrack,
+  generateProjectLyrics,
+  separateStems,
+} from "@/lib/suno.functions";
+import { PageTransition } from "@/components/studio/PageTransition";
+import { AudioPlayer } from "@/components/studio/AudioPlayer";
+import { CoverArt } from "@/components/studio/CoverArt";
 
 export const Route = createFileRoute("/_authenticated/editor/$projectId")({
   head: () => ({
@@ -34,402 +26,430 @@ export const Route = createFileRoute("/_authenticated/editor/$projectId")({
       { title: "Éditeur · Loopster" },
       {
         name: "description",
-        content: "Timeline multipiste, réglages audio et aperçus en temps réel.",
+        content: "Écoute, améliore et exporte une création réelle Loopster.",
       },
     ],
   }),
   component: EditorPage,
 });
 
+type StemState = {
+  taskId?: string;
+  status?: string;
+  vocalUrl?: string | null;
+  instrumentalUrl?: string | null;
+};
+
 function EditorPage() {
   const { projectId } = Route.useParams();
   const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
   const canDownload = isPaidPlan(profile);
+  const [busy, setBusy] = useState<string | null>(null);
+  const runExtend = useServerFn(extendTrack);
+  const runStems = useServerFn(separateStems);
+  const runLyrics = useServerFn(generateProjectLyrics);
+  const runWav = useServerFn(convertProjectToWav);
+  const runVideo = useServerFn(createProjectVideo);
+
   const { data: project, isLoading } = useQuery({
     queryKey: ["editor-project", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id,title,genre,status,cover_gradient,image_url,cover_url,audio_url,duration_seconds,progress")
+        .select(
+          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id",
+        )
         .eq("id", projectId)
         .maybeSingle();
       if (error) throw error;
       if (!data) throw notFound();
-      const seed = data.id.charCodeAt(0) + data.id.length;
-      return {
-        ...data,
-        genre: data.genre ?? "Projet",
-        status: data.status === "ready" || data.status === "rendering" ? data.status : "draft",
-        coverGradient: data.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700",
-        cover: data.image_url ?? data.cover_url,
-        waveform: Array.from({ length: 48 }, (_, i) => Math.max(0.15, Math.abs(Math.sin(seed + i * 0.7)) * 0.75 + 0.2)),
-        bpm: 0,
-        duration: data.duration_seconds
-          ? `${Math.floor(data.duration_seconds / 60)}:${String(data.duration_seconds % 60).padStart(2, "0")}`
-          : "—",
-      };
+      return data;
     },
+    refetchInterval: (query) =>
+      query.state.data?.status === "rendering" ||
+      (query.state.data?.stems as StemState | null)?.status === "processing"
+        ? 5000
+        : false,
   });
-  const [playing, setPlaying] = useState(true);
-  const [playhead, setPlayhead] = useState(38);
-  const [selected, setSelected] = useState<string | null>("c5");
-  const [reverb, setReverb] = useState(28);
-  const [compression, setCompression] = useState(64);
-  const [tempo, setTempo] = useState(0);
-  const [master, setMaster] = useState(80);
 
   if (isLoading || !project) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">Chargement…</div>;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">
+        Chargement…
+      </div>
+    );
   }
+
+  const stems = (project.stems as StemState | null) ?? null;
+  const cover = project.image_url ?? project.cover_url;
+  const gradient = project.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700";
+  const duration = project.duration_seconds
+    ? `${Math.floor(project.duration_seconds / 60)}:${String(project.duration_seconds % 60).padStart(2, "0")}`
+    : "—";
+
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["editor-project", project.id] }),
+      queryClient.invalidateQueries({ queryKey: ["project", project.id] }),
+      queryClient.invalidateQueries({ queryKey: ["profile"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects"] }),
+    ]);
+  };
+
+  const run = async (name: string, action: () => Promise<unknown>, success: string) => {
+    if (busy) return;
+    setBusy(name);
+    try {
+      await action();
+      await refresh();
+      toast.success(success);
+    } catch (error) {
+      toast.error("Cette action n'a pas pu démarrer", {
+        description: error instanceof Error ? error.message : "Réessaie dans un instant.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <PageTransition>
-      {/* Editor top bar */}
-      <div className="sticky top-0 z-20 -mx-5 mb-4 border-b border-white/5 bg-background/85 px-5 py-3 backdrop-blur-xl md:top-0 md:mx-0 md:rounded-2xl md:border md:px-4">
+      <div className="space-y-5 px-5 pb-10 pt-6 md:px-0">
         <div className="flex items-center gap-3">
           <Link
             to="/library/$projectId"
             params={{ projectId: project.id }}
-            className="grid size-9 place-items-center rounded-full border border-white/10 bg-surface"
+            className="grid size-9 place-items-center rounded-full border border-white/10 bg-surface text-zinc-300 hover:text-neon"
+            aria-label="Retour au projet"
           >
             <ArrowLeft className="size-4" />
           </Link>
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-neon">
-              Éditeur · {project.status}
-            </div>
-            <h1 className="truncate text-base font-semibold">{project.title}</h1>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-neon">
+              Éditeur Loopster
+            </p>
+            <h1 className="truncate text-xl font-semibold">{project.title}</h1>
           </div>
-          <button
-            onClick={() => soon("Sauvegarde bientôt disponible")}
-            className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-surface px-3 py-1.5 text-xs md:inline-flex"
-          >
-            <Save className="size-3.5" />
-            Enregistrer
-          </button>
-          <button
-            onClick={() => soon("Export bientôt disponible")}
-            className="inline-flex items-center gap-1.5 rounded-full bg-neon px-3 py-1.5 text-xs font-semibold text-background"
-          >
-            <Download className="size-3.5" />
-            Exporter
-          </button>
+          <span className="rounded-full border border-white/10 bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+            {project.status === "ready"
+              ? "Prêt"
+              : project.status === "rendering"
+                ? "En préparation"
+                : "Brouillon"}
+          </span>
         </div>
-      </div>
 
-      <div className="grid gap-4 px-5 md:grid-cols-[1fr_320px] md:px-0">
-        {/* Preview + timeline */}
-        <div className="space-y-4">
-          {/* Preview */}
-          <div className="overflow-hidden rounded-2xl border border-white/5 bg-surface">
-            <div className="relative">
-              {project.cover ? (
-                <img src={project.cover} alt={`Pochette de ${project.title}`} className="aspect-[16/9] w-full object-cover" />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-5">
+            <section className="overflow-hidden rounded-2xl border border-white/5 bg-surface">
+              <div className="relative">
+                {cover ? (
+                  <img
+                    src={cover}
+                    alt={`Pochette de ${project.title}`}
+                    className="aspect-[16/8] w-full object-cover"
+                  />
+                ) : (
+                  <CoverArt gradient={gradient} className="aspect-[16/8] rounded-none" />
+                )}
+                <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
+                  <div className="rounded-xl bg-background/75 px-3 py-2 backdrop-blur">
+                    <p className="text-sm font-semibold">{project.genre ?? "Création Loopster"}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                      {duration}
+                    </p>
+                  </div>
+                  {project.model && (
+                    <span className="rounded-full bg-background/75 px-2.5 py-1 font-mono text-[10px] text-zinc-300 backdrop-blur">
+                      {project.model}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {project.audio_url ? (
+                <AudioPlayer
+                  src={project.audio_url}
+                  seed={project.id}
+                  label="Master audio"
+                  downloadName={`${project.title}.mp3`}
+                  canDownload={canDownload}
+                  className="m-3"
+                />
               ) : (
-                <CoverArt gradient={project.coverGradient} className="aspect-[16/9] rounded-none">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <button
-                    onClick={() => setPlaying((p) => !p)}
-                    className="grid size-16 place-items-center rounded-full bg-background/60 backdrop-blur-xl ring-1 ring-white/20"
-                  >
-                    {playing ? (
-                      <Pause className="size-6 text-neon" />
-                    ) : (
-                      <Play className="size-6 text-neon" />
-                    )}
-                  </button>
-                </div>
-                <div className="absolute inset-x-4 bottom-4 h-10">
-                  <WaveformBars peaks={project.waveform} />
-                </div>
-                </CoverArt>
+                <p className="p-5 text-sm text-zinc-400">
+                  Ton aperçu audio apparaîtra ici dès que la création sera prête.
+                </p>
               )}
-              <div className="absolute inset-x-0 top-3 flex items-center justify-between px-4">
-                <span className="rounded-full bg-background/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neon backdrop-blur">
-                  ● LIVE PREVIEW
-                </span>
-                <span className="rounded-full bg-background/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-zinc-300 backdrop-blur">
-                  {tempo} BPM · {project.genre}
-                </span>
-              </div>
-            </div>
+            </section>
 
-            {project.audio_url && (
-              <AudioPlayer
-                src={project.audio_url}
-                seed={project.id}
-                label="Master réel"
-                canDownload={canDownload}
-                className="m-3"
-              />
-            )}
-
-            {/* Transport */}
-            <div className="flex items-center gap-2 border-t border-white/5 px-3 py-2.5">
-              <button className="grid size-9 place-items-center rounded-lg hover:bg-white/5">
-                <SkipBack className="size-4" />
-              </button>
-              <button
-                onClick={() => setPlaying((p) => !p)}
-                className="grid size-11 place-items-center rounded-xl bg-neon text-background"
-              >
-                {playing ? <Pause className="size-5" /> : <Play className="size-5" />}
-              </button>
-              <button className="grid size-9 place-items-center rounded-lg hover:bg-white/5">
-                <SkipForward className="size-4" />
-              </button>
-              <div className="ml-2 font-mono text-[11px] tabular-nums text-zinc-400">
-                01:24 <span className="text-zinc-600">/ {project.duration}</span>
+            <section className="rounded-2xl border border-white/5 bg-surface p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <ListMusic className="size-4 text-neon" />
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                  Outils disponibles
+                </h2>
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                <Volume2 className="size-3.5 text-zinc-500" />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={master}
-                  onChange={(e) => setMaster(+e.target.value)}
-                  className="w-24 accent-cyan-300"
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ActionCard
+                  icon={<Wand2 className="size-4" />}
+                  title="Prolonger le morceau"
+                  description={`${COSTS.extend} crédits · crée une nouvelle version`}
+                  busy={busy === "extend"}
+                  disabled={!project.suno_audio_id}
+                  onClick={() =>
+                    run(
+                      "extend",
+                      async () => {
+                        const result = await runExtend({
+                          data: { projectId: project.id, requestId: crypto.randomUUID() },
+                        });
+                        window.location.href = `/library/${result.projectId}`;
+                      },
+                      "La nouvelle version est en préparation",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<ListMusic className="size-4" />}
+                  title="Séparer les pistes"
+                  description={`${COSTS.stems} crédits · voix et instrumental`}
+                  busy={busy === "stems"}
+                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  onClick={() =>
+                    run(
+                      "stems",
+                      () =>
+                        runStems({
+                          data: { projectId: project.id, requestId: crypto.randomUUID() },
+                        }),
+                      "La séparation des pistes est lancée",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<FileAudio className="size-4" />}
+                  title="Préparer un WAV"
+                  description={
+                    project.wav_url
+                      ? "Fichier WAV disponible"
+                      : `${COSTS.wav} crédits · export haute qualité`
+                  }
+                  busy={busy === "wav"}
+                  disabled={!project.suno_audio_id || Boolean(project.wav_url)}
+                  onClick={() =>
+                    run(
+                      "wav",
+                      () =>
+                        runWav({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
+                      "La conversion WAV est lancée",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<Film className="size-4" />}
+                  title="Créer une vidéo"
+                  description={
+                    project.video_url
+                      ? "Vidéo disponible"
+                      : `${COSTS.video} crédits · clip synchronisé`
+                  }
+                  busy={busy === "video"}
+                  disabled={!project.suno_audio_id || Boolean(project.video_url)}
+                  onClick={() =>
+                    run(
+                      "video",
+                      () =>
+                        runVideo({
+                          data: { projectId: project.id, requestId: crypto.randomUUID() },
+                        }),
+                      "La vidéo est en préparation",
+                    )
+                  }
                 />
               </div>
-            </div>
-          </div>
+            </section>
 
-          {/* Timeline */}
-          <div className="overflow-hidden rounded-2xl border border-white/5 bg-surface">
-            <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <Sliders className="size-4 text-neon" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-300">
-                  Timeline · 4 pistes
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {[
-                  { icon: Scissors, label: "Couper" },
-                  { icon: Copy, label: "Dupliquer" },
-                  { icon: Wand2, label: "AI Fix" },
-                  { icon: Trash2, label: "Suppr" },
-                ].map((a) => (
-                  <button
-                    key={a.label}
-                    onClick={() => soon(a.label + " bientôt disponible")}
-                    className="grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-neon"
-                    aria-label={a.label}
-                  >
-                    <a.icon className="size-3.5" />
-                  </button>
-                ))}
-              </div>
-            </div>
+            {(stems?.status === "ready" || stems?.vocalUrl || stems?.instrumentalUrl) && (
+              <section className="space-y-3 rounded-2xl border border-white/5 bg-surface p-4 sm:p-5">
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                  Pistes séparées
+                </h2>
+                {stems.vocalUrl && (
+                  <AudioPlayer
+                    src={stems.vocalUrl}
+                    seed={`${project.id}-vocal`}
+                    label="Voix"
+                    canDownload={canDownload}
+                    downloadName={`${project.title}-voix.mp3`}
+                  />
+                )}
+                {stems.instrumentalUrl && (
+                  <AudioPlayer
+                    src={stems.instrumentalUrl}
+                    seed={`${project.id}-instrumental`}
+                    label="Instrumental"
+                    canDownload={canDownload}
+                    downloadName={`${project.title}-instrumental.mp3`}
+                  />
+                )}
+              </section>
+            )}
 
-            {/* Ruler */}
-            <div className="relative flex h-6 items-end border-b border-white/5 px-16">
-              {[0, 25, 50, 75, 100].map((t) => (
-                <div
-                  key={t}
-                  className="flex-1 font-mono text-[9px] text-zinc-600"
-                  style={{ position: "relative" }}
-                >
-                  <span>{Math.round((t / 100) * 4)}:00</span>
+            {project.lyrics ? (
+              <section className="rounded-2xl border border-white/5 bg-surface p-5">
+                <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                  Paroles
+                </h2>
+                <p className="whitespace-pre-wrap text-sm leading-7 text-zinc-300">
+                  {project.lyrics}
+                </p>
+              </section>
+            ) : (
+              <section className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-surface p-5">
+                <div>
+                  <h2 className="text-sm font-semibold">Créer les paroles</h2>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Une version de paroles sera ajoutée à ce projet.
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            {/* Tracks */}
-            <div className="relative">
-              {stems.slice(0, 4).map((track) => {
-                const clips = timelineClips.filter((c) => c.track === track.id);
-                return (
-                  <div
-                    key={track.id}
-                    className="flex items-stretch border-b border-white/5 last:border-b-0"
-                  >
-                    <div className="flex w-16 shrink-0 flex-col justify-center border-r border-white/5 bg-background/40 px-2">
-                      <span className="truncate font-mono text-[10px] uppercase tracking-wider text-zinc-300">
-                        {track.label}
-                      </span>
-                      <span className="mt-0.5 font-mono text-[9px] text-zinc-600">
-                        vol {track.volume}
-                      </span>
-                    </div>
-                    <div className="relative h-14 flex-1">
-                      {clips.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => setSelected(c.id)}
-                          className={cn(
-                            "absolute top-1.5 bottom-1.5 overflow-hidden rounded-md bg-gradient-to-br text-left transition-all",
-                            c.color,
-                            selected === c.id
-                              ? "ring-2 ring-neon shadow-[0_0_18px_rgba(34,211,238,0.4)]"
-                              : "opacity-80 hover:opacity-100",
-                          )}
-                          style={{ left: `${c.start}%`, width: `${c.width}%` }}
-                        >
-                          <span className="block truncate px-2 pt-1 font-mono text-[9px] uppercase tracking-wider text-white/90">
-                            {c.label}
-                          </span>
-                          <div className="absolute inset-x-1 bottom-1 h-3 opacity-70">
-                            <WaveformBars peaks={track.peaks.slice(0, 16)} />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Playhead */}
-              <div
-                className="pointer-events-none absolute top-0 bottom-0 w-px bg-neon shadow-[0_0_10px_rgba(34,211,238,0.7)]"
-                style={{ left: `calc(4rem + ${playhead}% * (100% - 4rem) / 100)` }}
-              >
-                <div className="absolute -top-1 -left-1 size-2 rounded-full bg-neon" />
-              </div>
-            </div>
-
-            {/* Scrub */}
-            <div className="border-t border-white/5 px-3 py-2">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={playhead}
-                onChange={(e) => setPlayhead(+e.target.value)}
-                className="w-full accent-cyan-300"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right panel — mixer & FX */}
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-white/5 bg-surface p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-neon">
-                Mixer
-              </span>
-              <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
-                5 pistes
-              </span>
-            </div>
-            <div className="space-y-3">
-              {stems.map((s) => (
-                <StemRow key={s.id} stem={s} />
-              ))}
-            </div>
+                <button
+                  type="button"
+                  disabled={Boolean(busy)}
+                  onClick={() =>
+                    run(
+                      "lyrics",
+                      () =>
+                        runLyrics({
+                          data: {
+                            projectId: project.id,
+                            prompt: project.prompt ?? `Paroles pour ${project.title}`,
+                            requestId: crypto.randomUUID(),
+                          },
+                        }),
+                      "Les paroles sont en préparation",
+                    )
+                  }
+                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-neon/30 bg-neon/10 px-3 text-xs font-semibold text-neon disabled:opacity-50"
+                >
+                  {busy === "lyrics" && <Loader2 className="size-3.5 animate-spin" />}
+                  Générer
+                </button>
+              </section>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-white/5 bg-surface p-4">
-            <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-neon">
-              Effets Master
-            </div>
-            <FaderControl label="Reverb" value={reverb} onChange={setReverb} unit="%" />
-            <FaderControl
-              label="Compression"
-              value={compression}
-              onChange={setCompression}
-              unit="%"
-            />
-            <FaderControl
-              label="Tempo"
-              value={tempo}
-              onChange={setTempo}
-              min={60}
-              max={200}
-              unit=" BPM"
-            />
-          </div>
-
-          <button
-            onClick={() => soon("Régénération IA bientôt disponible")}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neon/30 bg-neon/10 py-3 text-sm font-semibold text-neon"
-          >
-            <Wand2 className="size-4" />
-            Régénérer avec IA
-          </button>
+          <aside className="space-y-4">
+            <section className="rounded-2xl border border-white/5 bg-surface p-5">
+              <h2 className="text-sm font-semibold">Exporter ta création</h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                Écoute gratuitement dans Loopster. L’export reste réservé aux formules payantes.
+              </p>
+              {!canDownload && (
+                <Link
+                  to="/credits"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-neon px-4 text-sm font-semibold text-background"
+                >
+                  Débloquer les exports
+                </Link>
+              )}
+              {canDownload && project.audio_url && (
+                <a
+                  href={project.audio_url}
+                  download={`${project.title}.mp3`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-neon px-4 text-sm font-semibold text-background"
+                >
+                  <Download className="size-4" /> Télécharger le MP3
+                </a>
+              )}
+              {project.wav_url && canDownload && (
+                <a
+                  href={project.wav_url}
+                  download={`${project.title}.wav`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-zinc-200"
+                >
+                  <FileAudio className="size-4" /> Télécharger le WAV
+                </a>
+              )}
+              {project.video_url && canDownload && (
+                <a
+                  href={project.video_url}
+                  download={`${project.title}.mp4`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-zinc-200"
+                >
+                  <Film className="size-4" /> Télécharger la vidéo
+                </a>
+              )}
+            </section>
+            <section className="rounded-2xl border border-white/5 bg-surface p-5">
+              <h2 className="mb-3 text-sm font-semibold">Détails du projet</h2>
+              <dl className="space-y-2 text-sm">
+                <Detail
+                  label="Statut"
+                  value={
+                    project.status === "ready"
+                      ? "Prêt"
+                      : project.status === "rendering"
+                        ? "En préparation"
+                        : "Brouillon"
+                  }
+                />
+                <Detail label="Durée" value={duration} />
+                <Detail label="Modèle" value={project.model ?? "—"} />
+                <Detail label="Progression" value={`${project.progress ?? 0}%`} />
+              </dl>
+            </section>
+          </aside>
         </div>
       </div>
     </PageTransition>
   );
 }
 
-function StemRow({ stem }: { stem: (typeof stems)[number] }) {
-  const [vol, setVol] = useState(stem.volume);
-  const [muted, setMuted] = useState(false);
-  const [solo, setSolo] = useState(false);
+function ActionCard({
+  icon,
+  title,
+  description,
+  busy,
+  disabled,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <div className={`size-2 rounded-full bg-gradient-to-br ${stem.color}`} />
-      <div className="w-14 shrink-0 font-mono text-[10px] uppercase tracking-wider">
-        {stem.label}
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={muted ? 0 : vol}
-        onChange={(e) => setVol(+e.target.value)}
-        className="flex-1 accent-cyan-300"
-      />
-      <span className="w-8 text-right font-mono text-[10px] tabular-nums text-zinc-400">
-        {muted ? "—" : vol}
+    <button
+      type="button"
+      disabled={disabled || busy}
+      onClick={onClick}
+      className="flex min-h-20 items-center gap-3 rounded-xl border border-white/10 bg-background/30 p-3 text-left transition-colors hover:border-neon/40 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-neon/10 text-neon">
+        {busy ? <Loader2 className="size-4 animate-spin" /> : icon}
       </span>
-      <button
-        onClick={() => setMuted((m) => !m)}
-        className={cn(
-          "grid size-6 place-items-center rounded font-mono text-[9px] font-bold",
-          muted ? "bg-rose-500/80 text-white" : "bg-white/5 text-zinc-400",
-        )}
-      >
-        M
-      </button>
-      <button
-        onClick={() => setSolo((s) => !s)}
-        className={cn(
-          "grid size-6 place-items-center rounded font-mono text-[9px] font-bold",
-          solo ? "bg-neon text-background" : "bg-white/5 text-zinc-400",
-        )}
-      >
-        S
-      </button>
-    </div>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="mt-1 block text-xs text-zinc-500">{description}</span>
+      </span>
+    </button>
   );
 }
 
-function FaderControl({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max = 100,
-  unit = "",
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  unit?: string;
-}) {
+function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mb-3 last:mb-0">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs text-zinc-300">{label}</span>
-        <span className="font-mono text-[10px] tabular-nums text-neon">
-          {value}
-          {unit}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(+e.target.value)}
-        className="w-full accent-cyan-300"
-      />
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="font-mono text-xs text-zinc-300">{value}</dd>
     </div>
   );
 }

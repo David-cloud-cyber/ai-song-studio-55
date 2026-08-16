@@ -77,7 +77,10 @@ export const Route = createFileRoute("/_authenticated/library/$projectId")({
   head: () => ({
     meta: [
       { title: "Projet · Loopster" },
-      { name: "description", content: "Écoutez, prolongez et séparez les pistes de votre morceau." },
+      {
+        name: "description",
+        content: "Écoutez, prolongez et séparez les pistes de votre morceau.",
+      },
       { property: "og:title", content: "Projet · Loopster" },
       {
         property: "og:description",
@@ -184,7 +187,9 @@ function ProjectDetail() {
   const doExtend = async () => {
     setBusy("extend");
     try {
-      const res = await runExtend({ data: { projectId: project.id } });
+      const res = await runExtend({
+        data: { projectId: project.id, requestId: crypto.randomUUID() },
+      });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Le morceau continue !", { description: `${COSTS.extend} crédits utilisés.` });
@@ -201,11 +206,13 @@ function ProjectDetail() {
   const doStems = async () => {
     setBusy("stems");
     try {
-      await runStems({ data: { projectId: project.id } });
+      await runStems({ data: { projectId: project.id, requestId: crypto.randomUUID() } });
       queryClient.invalidateQueries({ queryKey: ["project", project.id] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       setTab("Stems");
-      toast.success("Les pistes se séparent !", { description: `${COSTS.stems} crédits utilisés.` });
+      toast.success("Les pistes se séparent !", {
+        description: `${COSTS.stems} crédits utilisés.`,
+      });
     } catch {
       toast.error("Les pistes font une petite pause", {
         description: "On retente dans un instant ?",
@@ -242,25 +249,51 @@ function ProjectDetail() {
   const doVocals = () =>
     runDerived(
       "vocals",
-      () => runVocals({ data: { projectId: project.id, prompt: project.prompt ?? "Voix expressive et mélodique" } }),
+      () =>
+        runVocals({
+          data: {
+            projectId: project.id,
+            prompt: project.prompt ?? "Voix expressive et mélodique",
+            requestId: crypto.randomUUID(),
+          },
+        }),
       "Ajout des voix lancé",
     );
 
   const doInstrumental = () =>
-    runDerived("instrumental", () => runInstrumental({ data: { projectId: project.id } }), "Ajout instrumental lancé");
+    runDerived(
+      "instrumental",
+      () => runInstrumental({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
+      "Ajout instrumental lancé",
+    );
 
   const doLyrics = () =>
     runDerived(
       "lyrics",
-      () => runLyrics({ data: { projectId: project.id, prompt: project.prompt ?? `Paroles pour ${project.title}` } }),
+      () =>
+        runLyrics({
+          data: {
+            projectId: project.id,
+            prompt: project.prompt ?? `Paroles pour ${project.title}`,
+            requestId: crypto.randomUUID(),
+          },
+        }),
       "Génération des paroles lancée",
     );
 
   const doWav = () =>
-    runDerived("wav", () => runWav({ data: { projectId: project.id } }), "Conversion WAV lancée");
+    runDerived(
+      "wav",
+      () => runWav({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
+      "Conversion WAV lancée",
+    );
 
   const doVideo = () =>
-    runDerived("video", () => runVideo({ data: { projectId: project.id } }), "Création vidéo lancée");
+    runDerived(
+      "video",
+      () => runVideo({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
+      "Création vidéo lancée",
+    );
 
   const toggleFavorite = async () => {
     const { error } = await supabase
@@ -280,7 +313,11 @@ function ProjectDetail() {
     const url = window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: project.title, text: "Écoutez ce morceau créé avec Loopster", url });
+        await navigator.share({
+          title: project.title,
+          text: "Écoutez ce morceau créé avec Loopster",
+          url,
+        });
       } else {
         await navigator.clipboard.writeText(url);
         toast.success("Lien copié");
@@ -363,7 +400,10 @@ function ProjectDetail() {
           {project.error_message && (
             <div className="mt-4 flex items-start gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span>Oups, ce morceau a rencontré un petit contretemps. Relance la création pour réessayer.</span>
+              <span>
+                Oups, ce morceau a rencontré un petit contretemps. Relance la création pour
+                réessayer.
+              </span>
             </div>
           )}
 
@@ -426,7 +466,11 @@ function ProjectDetail() {
               disabled={!project.audio_url || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-neon/20 bg-neon/5 py-2.5 text-xs font-semibold text-neon disabled:opacity-40"
             >
-              {busy === "vocals" ? <Loader2 className="size-3.5 animate-spin" /> : <Mic2 className="size-3.5" />}
+              {busy === "vocals" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Mic2 className="size-3.5" />
+              )}
               Ajouter voix · {COSTS.vocals} CR
             </button>
             <button
@@ -434,7 +478,11 @@ function ProjectDetail() {
               disabled={!project.audio_url || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
-              {busy === "instrumental" ? <Loader2 className="size-3.5 animate-spin" /> : <Music className="size-3.5" />}
+              {busy === "instrumental" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Music className="size-3.5" />
+              )}
               Ajouter instru · {COSTS.addInstrumental} CR
             </button>
           </div>
@@ -460,21 +508,36 @@ function ProjectDetail() {
               disabled={busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
-              {busy === "lyrics" ? <Loader2 className="size-3 animate-spin" /> : <Wand2 className="size-3" />} Paroles
+              {busy === "lyrics" ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Wand2 className="size-3" />
+              )}{" "}
+              Paroles
             </button>
             <button
               onClick={doWav}
               disabled={!project.suno_audio_id || busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
-              {busy === "wav" ? <Loader2 className="size-3 animate-spin" /> : <FileAudio className="size-3" />} WAV
+              {busy === "wav" ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <FileAudio className="size-3" />
+              )}{" "}
+              WAV
             </button>
             <button
               onClick={doVideo}
               disabled={!project.suno_audio_id || busy !== null}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-surface py-2.5 text-[11px] font-semibold disabled:opacity-40"
             >
-              {busy === "video" ? <Loader2 className="size-3 animate-spin" /> : <Video className="size-3" />} Vidéo
+              {busy === "video" ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Video className="size-3" />
+              )}{" "}
+              Vidéo
             </button>
           </div>
         </div>

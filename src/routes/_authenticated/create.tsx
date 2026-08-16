@@ -10,7 +10,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { genres, moods, voices, templates } from "@/data/mock";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
-import { Sparkles, Music, Mic2, Clock, Sliders, MicOff, Loader2, Cpu, Upload, X } from "lucide-react";
+import {
+  Sparkles,
+  Music,
+  Mic2,
+  Clock,
+  Sliders,
+  MicOff,
+  Loader2,
+  Cpu,
+  Upload,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -118,6 +129,7 @@ function CreatePage() {
             instrumental,
             model,
             coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
+            requestId: crypto.randomUUID(),
           },
         });
       } else {
@@ -214,12 +226,17 @@ function CreatePage() {
                 </button>
               </div>
             ) : (
-              <label htmlFor="source-audio" className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400 hover:text-foreground">
+              <label
+                htmlFor="source-audio"
+                className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400 hover:text-foreground"
+              >
                 <Upload className="size-4 text-neon" />
                 Importer un audio à remixer ou transformer
               </label>
             )}
-            <p className="mt-2 text-[10px] text-zinc-600">MP3, WAV ou M4A · durée recommandée : 8 min maximum</p>
+            <p className="mt-2 text-[10px] text-zinc-600">
+              MP3, WAV ou M4A · durée recommandée : 8 min maximum
+            </p>
           </div>
         </div>
       </section>

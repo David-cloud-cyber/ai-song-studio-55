@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { VoiceProfilePanel } from "@/components/studio/VoiceProfilePanel";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -235,6 +236,12 @@ function SettingsPage() {
           />
         </Group>
       </section>
+
+      {profile?.id && (
+        <section className="px-5 pt-6">
+          <VoiceProfilePanel userId={profile.id} />
+        </section>
+      )}
 
       <section className="px-5 pt-6">
         <button

@@ -291,11 +291,13 @@ export type Database = {
       projects: {
         Row: {
           audio_url: string | null;
+          active_version_id: string | null;
           archived_at: string | null;
           cover_gradient: string | null;
           cover_url: string | null;
           created_at: string;
           duration_seconds: number | null;
+          edit_state: Json;
           error_message: string | null;
           genre: string | null;
           id: string;
@@ -308,6 +310,7 @@ export type Database = {
           model: string | null;
           mood: string | null;
           parent_project_id: string | null;
+          persona_id: string | null;
           progress: number;
           prompt: string | null;
           status: string;
@@ -322,14 +325,17 @@ export type Database = {
           video_url: string | null;
           wav_url: string | null;
           voice: string | null;
+          voice_profile_id: string | null;
         };
         Insert: {
           audio_url?: string | null;
+          active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;
+          edit_state?: Json;
           error_message?: string | null;
           genre?: string | null;
           id?: string;
@@ -342,6 +348,7 @@ export type Database = {
           model?: string | null;
           mood?: string | null;
           parent_project_id?: string | null;
+          persona_id?: string | null;
           progress?: number;
           prompt?: string | null;
           status?: string;
@@ -356,14 +363,17 @@ export type Database = {
           video_url?: string | null;
           wav_url?: string | null;
           voice?: string | null;
+          voice_profile_id?: string | null;
         };
         Update: {
           audio_url?: string | null;
+          active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;
+          edit_state?: Json;
           error_message?: string | null;
           genre?: string | null;
           id?: string;
@@ -376,6 +386,7 @@ export type Database = {
           model?: string | null;
           mood?: string | null;
           parent_project_id?: string | null;
+          persona_id?: string | null;
           progress?: number;
           prompt?: string | null;
           status?: string;
@@ -390,6 +401,7 @@ export type Database = {
           video_url?: string | null;
           wav_url?: string | null;
           voice?: string | null;
+          voice_profile_id?: string | null;
         };
         Relationships: [
           {
@@ -400,6 +412,312 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      project_versions: {
+        Row: {
+          id: string;
+          project_id: string;
+          parent_version_id: string | null;
+          version_number: number;
+          label: string;
+          prompt: string | null;
+          lyrics: string | null;
+          audio_url: string | null;
+          wav_url: string | null;
+          video_url: string | null;
+          cover_url: string | null;
+          stems: Json | null;
+          edit_state: Json;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          parent_version_id?: string | null;
+          version_number?: number;
+          label?: string;
+          prompt?: string | null;
+          lyrics?: string | null;
+          audio_url?: string | null;
+          wav_url?: string | null;
+          video_url?: string | null;
+          cover_url?: string | null;
+          stems?: Json | null;
+          edit_state?: Json;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          parent_version_id?: string | null;
+          version_number?: number;
+          label?: string;
+          prompt?: string | null;
+          lyrics?: string | null;
+          audio_url?: string | null;
+          wav_url?: string | null;
+          video_url?: string | null;
+          cover_url?: string | null;
+          stems?: Json | null;
+          edit_state?: Json;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      project_tracks: {
+        Row: {
+          id: string;
+          project_id: string;
+          version_id: string | null;
+          role: string;
+          label: string;
+          asset_url: string | null;
+          source_url: string | null;
+          sort_order: number;
+          start_seconds: number;
+          end_seconds: number | null;
+          gain: number;
+          muted: boolean;
+          solo: boolean;
+          fade_in_seconds: number;
+          fade_out_seconds: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          version_id?: string | null;
+          role?: string;
+          label: string;
+          asset_url?: string | null;
+          source_url?: string | null;
+          sort_order?: number;
+          start_seconds?: number;
+          end_seconds?: number | null;
+          gain?: number;
+          muted?: boolean;
+          solo?: boolean;
+          fade_in_seconds?: number;
+          fade_out_seconds?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          version_id?: string | null;
+          role?: string;
+          label?: string;
+          asset_url?: string | null;
+          source_url?: string | null;
+          sort_order?: number;
+          start_seconds?: number;
+          end_seconds?: number | null;
+          gain?: number;
+          muted?: boolean;
+          solo?: boolean;
+          fade_in_seconds?: number;
+          fade_out_seconds?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      project_sections: {
+        Row: {
+          id: string;
+          project_id: string;
+          version_id: string | null;
+          section_type: string;
+          label: string;
+          start_seconds: number;
+          end_seconds: number;
+          lyric_text: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          version_id?: string | null;
+          section_type?: string;
+          label: string;
+          start_seconds?: number;
+          end_seconds: number;
+          lyric_text?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          version_id?: string | null;
+          section_type?: string;
+          label?: string;
+          start_seconds?: number;
+          end_seconds?: number;
+          lyric_text?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lyrics_versions: {
+        Row: {
+          id: string;
+          project_id: string;
+          version_id: string | null;
+          content: string;
+          source: string;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          version_id?: string | null;
+          content: string;
+          source?: string;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          version_id?: string | null;
+          content?: string;
+          source?: string;
+          is_active?: boolean;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      voice_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          description: string | null;
+          provider_voice_id: string | null;
+          validation_task_id: string | null;
+          validation_phrase: string | null;
+          verify_asset_path: string | null;
+          source_asset_path: string | null;
+          status: string;
+          consent_version: string;
+          consent_at: string;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          description?: string | null;
+          provider_voice_id?: string | null;
+          validation_task_id?: string | null;
+          validation_phrase?: string | null;
+          verify_asset_path?: string | null;
+          source_asset_path?: string | null;
+          status?: string;
+          consent_version?: string;
+          consent_at: string;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          description?: string | null;
+          provider_voice_id?: string | null;
+          validation_task_id?: string | null;
+          validation_phrase?: string | null;
+          verify_asset_path?: string | null;
+          source_asset_path?: string | null;
+          status?: string;
+          consent_version?: string;
+          consent_at?: string;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      operation_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string | null;
+          generation_job_id: string | null;
+          event_type: string;
+          payload: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id?: string | null;
+          generation_job_id?: string | null;
+          event_type: string;
+          payload?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          project_id?: string | null;
+          generation_job_id?: string | null;
+          event_type?: string;
+          payload?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      music_personas: {
+        Row: {
+          id: string;
+          user_id: string;
+          source_project_id: string | null;
+          name: string;
+          provider_persona_id: string | null;
+          status: string;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source_project_id?: string | null;
+          name: string;
+          provider_persona_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          source_project_id?: string | null;
+          name?: string;
+          provider_persona_id?: string | null;
+          status?: string;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       user_roles: {
         Row: {

@@ -118,36 +118,24 @@ export function AudioPlayer({
         </button>
 
         <div className="min-w-0 flex-1">
-          <div
-            role="slider"
-            tabIndex={duration ? 0 : -1}
-            aria-label="Position dans le morceau"
-            aria-valuemin={0}
-            aria-valuemax={duration || 0}
-            aria-valuenow={time}
-            aria-valuetext={`${fmt(time)} sur ${fmt(duration)}`}
-            onClick={(e) => {
-              const el = ref.current;
-              if (!el || !duration) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              el.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
-            }}
-            onKeyDown={(e) => {
-              const el = ref.current;
-              if (!el || !duration) return;
-              const step = e.shiftKey ? 10 : 5;
-              if (e.key === "ArrowRight") {
-                e.preventDefault();
-                el.currentTime = Math.min(duration, el.currentTime + step);
-              }
-              if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                el.currentTime = Math.max(0, el.currentTime - step);
-              }
-            }}
-            className={cn(compact ? "h-8" : "h-10", "cursor-pointer")}
-          >
+          <div className={cn(compact ? "h-8" : "h-10", "relative cursor-pointer")}>
             <WaveformBars peaks={peaks(seed)} animated={playing} progress={progress} />
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={time}
+              disabled={!duration}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setTime(next);
+                if (ref.current) ref.current.currentTime = next;
+              }}
+              aria-label="Position dans le morceau"
+              aria-valuetext={`${fmt(time)} sur ${fmt(duration)}`}
+              className="absolute inset-x-0 top-1/2 h-8 w-full -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-wait"
+            />
           </div>
           <div className="mt-1 flex justify-between font-mono text-[10px] text-zinc-500">
             <span>{fmt(time)}</span>
@@ -187,7 +175,12 @@ export function AudioPlayer({
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          const nextDuration = e.currentTarget.duration;
+          setDuration(Number.isFinite(nextDuration) ? nextDuration : 0);
+          setLoading(false);
+        }}
+        onCanPlay={() => setLoading(false)}
         onError={() => {
           setPlaying(false);
           setLoading(false);

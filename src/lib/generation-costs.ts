@@ -19,6 +19,11 @@ export const SUNO_PROVIDER_COSTS = {
   fullSeparation: 50,
   video: 2,
   replaceSection: 5,
+  mashup: 12,
+  sample: 12,
+  voiceProfile: 12,
+  customModel: 12,
+  persona: 0,
 } as const;
 
 /** Credits shown to Loopster users. They are intentionally not SunoAPI credits. */
@@ -39,6 +44,11 @@ export const LOOPSTER_COSTS = {
   video: 14,
   cover: 0,
   replaceSection: 34,
+  mashup: 80,
+  sample: 80,
+  voiceProfile: 80,
+  customModel: 160,
+  persona: 8,
 } as const;
 
 export function sunoCostUsd(providerCredits: number) {
@@ -61,4 +71,10 @@ export const PROVIDER_COST_BY_JOB_KIND: Record<string, number> = {
   video: SUNO_PROVIDER_COSTS.video,
   cover: SUNO_PROVIDER_COSTS.cover,
   "replace-section": SUNO_PROVIDER_COSTS.replaceSection,
+  mashup: SUNO_PROVIDER_COSTS.mashup,
+  sound: SUNO_PROVIDER_COSTS.effects,
+  sample: SUNO_PROVIDER_COSTS.sample,
+  "voice-profile": SUNO_PROVIDER_COSTS.voiceProfile,
+  "custom-model": SUNO_PROVIDER_COSTS.customModel,
+  persona: SUNO_PROVIDER_COSTS.persona,
 };

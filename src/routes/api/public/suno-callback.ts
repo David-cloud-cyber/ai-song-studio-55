@@ -24,6 +24,17 @@ type CallbackBody = {
       origin_url?: string | null;
       instrumental_url?: string | null;
       vocal_url?: string | null;
+      backing_vocals_url?: string | null;
+      drums_url?: string | null;
+      bass_url?: string | null;
+      guitar_url?: string | null;
+      keyboard_url?: string | null;
+      percussion_url?: string | null;
+      strings_url?: string | null;
+      synth_url?: string | null;
+      fx_url?: string | null;
+      brass_url?: string | null;
+      woodwinds_url?: string | null;
     };
     images?: string[];
     [key: string]: unknown;
@@ -72,7 +83,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
 
         const { data: job } = await supabaseAdmin
           .from("generation_jobs")
-          .select("id,project_id,user_id,kind,status,credits_spent,credits_refunded")
+          .select("id,project_id,user_id,kind,status,credits_spent,credits_refunded,payload")
           .eq("suno_task_id", taskId)
           .maybeSingle();
 
@@ -107,11 +118,88 @@ export const Route = createFileRoute("/api/public/suno-callback")({
           return new Response("ok");
         }
 
+        if (job && job.kind === "voice-profile") {
+          const voiceId = findString(body, ["voiceId", "voice_id"]);
+          const payload = (job.payload ?? {}) as {
+            voiceProfileId?: string;
+            sourceAssetPath?: string;
+            verifyAssetPath?: string;
+          };
+          if (!voiceId || !payload.voiceProfileId) return new Response("ok");
+          await supabaseAdmin
+            .from("voice_profiles")
+            .update({ provider_voice_id: voiceId, status: "ready", error_message: null })
+            .eq("id", payload.voiceProfileId)
+            .eq("user_id", job.user_id);
+          const sourcePaths = [payload.sourceAssetPath, payload.verifyAssetPath].filter(
+            (path): path is string => Boolean(path),
+          );
+          if (sourcePaths.length > 0)
+            await supabaseAdmin.storage.from("voice-sources").remove(sourcePaths);
+          await supabaseAdmin
+            .from("generation_jobs")
+            .update({ status: "completed", result: { voiceId } })
+            .eq("id", job.id);
+          return new Response("ok");
+        }
+
+        if (job && job.kind === "voice-validation") {
+          const phrase = findString(body, [
+            "validateInfo",
+            "validationPhrase",
+            "validation_phrase",
+            "phrase",
+          ]);
+          const payload = (job.payload ?? {}) as { voiceProfileId?: string };
+          if (!phrase || !payload.voiceProfileId) return new Response("ok");
+          await supabaseAdmin
+            .from("voice_profiles")
+            .update({
+              validation_task_id: taskId,
+              validation_phrase: phrase,
+              status: "awaiting_recording",
+            })
+            .eq("id", payload.voiceProfileId)
+            .eq("user_id", job.user_id);
+          await supabaseAdmin
+            .from("generation_jobs")
+            .update({ status: "completed", result: { validationPhrase: phrase } })
+            .eq("id", job.id);
+          return new Response("ok");
+        }
+
+        if (job && job.kind === "persona") {
+          const personaId = findString(body, ["personaId", "persona_id"]);
+          const payload = (job.payload ?? {}) as { personaId?: string };
+          if (!personaId || !payload.personaId) return new Response("ok");
+          await supabaseAdmin
+            .from("music_personas")
+            .update({ provider_persona_id: personaId, status: "ready", error_message: null })
+            .eq("id", payload.personaId)
+            .eq("user_id", job.user_id);
+          await supabaseAdmin
+            .from("generation_jobs")
+            .update({ status: "completed", result: { personaId } })
+            .eq("id", job.id);
+          return new Response("ok");
+        }
+
         if (job && job.kind === "lyrics") {
           const lyrics =
             findString(body, ["lyrics", "lyric", "text", "content"]) ?? body.msg ?? null;
           if (lyrics && job.project_id) {
             await supabaseAdmin.from("projects").update({ lyrics }).eq("id", job.project_id);
+            await supabaseAdmin
+              .from("lyrics_versions")
+              .update({ is_active: false })
+              .eq("project_id", job.project_id);
+            await supabaseAdmin.from("lyrics_versions").insert({
+              project_id: job.project_id,
+              content: lyrics,
+              source: "generated",
+              is_active: true,
+              created_by: job.user_id,
+            });
             await supabaseAdmin
               .from("generation_jobs")
               .update({ status: "completed", result: { lyrics } })
@@ -194,25 +282,134 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         }
 
         const vocal = body.data?.vocal_removal_info;
-        if (vocal) {
+        const isStemJob = Boolean(
+          job && ["stems", "advanced-stems", "full-stems"].includes(job.kind),
+        );
+        if (vocal || isStemJob) {
+          const originUrl = vocal?.origin_url ?? findString(body, ["originUrl", "origin_url"]);
+          const instrumentalUrl =
+            vocal?.instrumental_url ?? findString(body, ["instrumentalUrl", "instrumental_url"]);
+          const vocalUrl = vocal?.vocal_url ?? findString(body, ["vocalUrl", "vocal_url"]);
+          const backingVocalsUrl =
+            vocal?.backing_vocals_url ??
+            findString(body, ["backingVocalsUrl", "backing_vocals_url"]);
+          const drumsUrl = vocal?.drums_url ?? findString(body, ["drumsUrl", "drums_url"]);
+          const bassUrl = vocal?.bass_url ?? findString(body, ["bassUrl", "bass_url"]);
+          const guitarUrl = vocal?.guitar_url ?? findString(body, ["guitarUrl", "guitar_url"]);
+          const keyboardUrl =
+            vocal?.keyboard_url ?? findString(body, ["keyboardUrl", "keyboard_url"]);
+          const percussionUrl =
+            vocal?.percussion_url ?? findString(body, ["percussionUrl", "percussion_url"]);
+          const stringsUrl = vocal?.strings_url ?? findString(body, ["stringsUrl", "strings_url"]);
+          const synthUrl = vocal?.synth_url ?? findString(body, ["synthUrl", "synth_url"]);
+          const fxUrl = vocal?.fx_url ?? findString(body, ["fxUrl", "fx_url"]);
+          const brassUrl = vocal?.brass_url ?? findString(body, ["brassUrl", "brass_url"]);
+          const woodwindsUrl =
+            vocal?.woodwinds_url ?? findString(body, ["woodwindsUrl", "woodwinds_url"]);
+          if (
+            !originUrl &&
+            !instrumentalUrl &&
+            !vocalUrl &&
+            !backingVocalsUrl &&
+            !drumsUrl &&
+            !bassUrl &&
+            !guitarUrl &&
+            !keyboardUrl &&
+            !percussionUrl &&
+            !stringsUrl &&
+            !synthUrl &&
+            !fxUrl &&
+            !brassUrl &&
+            !woodwindsUrl
+          ) {
+            return new Response("ok");
+          }
           const durableOriginUrl = await persistGeneratedAsset(
             supabaseAdmin,
-            vocal.origin_url,
+            originUrl,
             `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-original.mp3`,
             "audio/mpeg",
           );
           const durableInstrumentalUrl = await persistGeneratedAsset(
             supabaseAdmin,
-            vocal.instrumental_url,
+            instrumentalUrl,
             `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-instrumental.mp3`,
             "audio/mpeg",
           );
           const durableVocalUrl = await persistGeneratedAsset(
             supabaseAdmin,
-            vocal.vocal_url,
+            vocalUrl,
             `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-vocal.mp3`,
             "audio/mpeg",
           );
+          const extraStemUrls = {
+            backingVocalsUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              backingVocalsUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-backing-vocals.mp3`,
+              "audio/mpeg",
+            ),
+            drumsUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              drumsUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-drums.mp3`,
+              "audio/mpeg",
+            ),
+            bassUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              bassUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-bass.mp3`,
+              "audio/mpeg",
+            ),
+            guitarUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              guitarUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-guitar.mp3`,
+              "audio/mpeg",
+            ),
+            keyboardUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              keyboardUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-keyboard.mp3`,
+              "audio/mpeg",
+            ),
+            percussionUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              percussionUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-percussion.mp3`,
+              "audio/mpeg",
+            ),
+            stringsUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              stringsUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-strings.mp3`,
+              "audio/mpeg",
+            ),
+            synthUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              synthUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-synth.mp3`,
+              "audio/mpeg",
+            ),
+            fxUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              fxUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-fx.mp3`,
+              "audio/mpeg",
+            ),
+            brassUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              brassUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-brass.mp3`,
+              "audio/mpeg",
+            ),
+            woodwindsUrl: await persistGeneratedAsset(
+              supabaseAdmin,
+              woodwindsUrl,
+              `${job?.user_id ?? "system"}/${job?.project_id ?? taskId}/stems-woodwinds.mp3`,
+              "audio/mpeg",
+            ),
+          };
           const { data: rows } = await supabaseAdmin
             .from("projects")
             .select("id,stems")
@@ -227,9 +424,36 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                   vocalUrl: durableVocalUrl,
                   instrumentalUrl: durableInstrumentalUrl,
                   originUrl: durableOriginUrl,
+                  ...extraStemUrls,
                 },
               })
               .eq("id", row.id);
+            const trackEntries: Array<[string, string, string | null]> = [
+              ["vocals", "Voix", durableVocalUrl],
+              ["instrumental", "Instrumental", durableInstrumentalUrl],
+              ["backing-vocals", "Chœurs", extraStemUrls.backingVocalsUrl],
+              ["drums", "Batterie", extraStemUrls.drumsUrl],
+              ["bass", "Basse", extraStemUrls.bassUrl],
+              ["guitar", "Guitare", extraStemUrls.guitarUrl],
+              ["keyboard", "Claviers", extraStemUrls.keyboardUrl],
+              ["percussion", "Percussions", extraStemUrls.percussionUrl],
+              ["strings", "Cordes", extraStemUrls.stringsUrl],
+              ["synth", "Synthé", extraStemUrls.synthUrl],
+              ["fx", "FX", extraStemUrls.fxUrl],
+              ["brass", "Cuivres", extraStemUrls.brassUrl],
+              ["woodwinds", "Bois", extraStemUrls.woodwindsUrl],
+            ];
+            await supabaseAdmin.from("project_tracks").insert(
+              trackEntries
+                .filter((entry): entry is [string, string, string] => Boolean(entry[2]))
+                .map(([role, label, assetUrl], sortOrder) => ({
+                  project_id: row.id,
+                  role,
+                  label,
+                  asset_url: assetUrl,
+                  sort_order: sortOrder,
+                })),
+            );
           }
           if (job) {
             await supabaseAdmin
@@ -237,8 +461,9 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .update({
                 status: "completed",
                 result: {
-                  vocalUrl: vocal.vocal_url ?? null,
-                  instrumentalUrl: vocal.instrumental_url ?? null,
+                  vocalUrl: vocalUrl ?? null,
+                  instrumentalUrl: instrumentalUrl ?? null,
+                  ...extraStemUrls,
                 },
               })
               .eq("id", job.id);
@@ -353,6 +578,40 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               error_message: null,
             })
             .eq("suno_task_id", taskId);
+          const { data: latestVersion } = await supabaseAdmin
+            .from("project_versions")
+            .select("version_number")
+            .eq("project_id", job.project_id)
+            .order("version_number", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const { data: createdVersion } = await supabaseAdmin
+            .from("project_versions")
+            .insert({
+              project_id: job.project_id,
+              version_number: (latestVersion?.version_number ?? 0) + 1,
+              label: job.kind === "replace-section" ? "Section remplacée" : "Version générée",
+              prompt: clip?.prompt ?? null,
+              audio_url: durableAudioUrl,
+              cover_url: durableImageUrl,
+              created_by: job.user_id,
+            })
+            .select("id")
+            .maybeSingle();
+          if (createdVersion?.id) {
+            await supabaseAdmin
+              .from("projects")
+              .update({ active_version_id: createdVersion.id })
+              .eq("id", job.project_id);
+            await supabaseAdmin.from("project_tracks").insert({
+              project_id: job.project_id,
+              version_id: createdVersion.id,
+              role: "master",
+              label: "Master audio",
+              asset_url: durableAudioUrl,
+              end_seconds: clip?.duration ?? null,
+            });
+          }
           await supabaseAdmin
             .from("generation_jobs")
             .update({

@@ -33,6 +33,17 @@ export type SunoStemInfo = {
     originUrl?: string | null;
     instrumentalUrl?: string | null;
     vocalUrl?: string | null;
+    backingVocalsUrl?: string | null;
+    drumsUrl?: string | null;
+    bassUrl?: string | null;
+    guitarUrl?: string | null;
+    keyboardUrl?: string | null;
+    percussionUrl?: string | null;
+    stringsUrl?: string | null;
+    synthUrl?: string | null;
+    fxUrl?: string | null;
+    brassUrl?: string | null;
+    woodwindsUrl?: string | null;
   } | null;
 };
 
@@ -93,6 +104,9 @@ export function createSong(payload: {
   customMode: boolean;
   instrumental: boolean;
   model: SunoModel;
+  personaId?: string;
+  personaModel?: boolean;
+  voiceId?: string;
   negativeTags?: string;
   vocalGender?: "m" | "f";
   callBackUrl: string;
@@ -122,10 +136,105 @@ export function getTaskInfo(taskId: string) {
 export function createStemSeparation(payload: {
   taskId: string;
   audioId: string;
-  type: "separate_vocal";
+  type: "separate_vocal" | "split_stem";
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/vocal-removal/generate", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function createMashup(payload: {
+  uploadUrlList: [string, string];
+  prompt?: string;
+  style?: string;
+  title?: string;
+  customMode: boolean;
+  model: SunoModel;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/mashup", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function createSound(payload: {
+  prompt: string;
+  duration?: number;
+  loop?: boolean;
+  bpm?: number;
+  keyScale?: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/sounds", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function createVoiceProfile(payload: {
+  taskId: string;
+  verifyUrl: string;
+  voiceName: string;
+  description?: string;
+  style?: string;
+  singerSkillLevel?: "beginner" | "intermediate" | "advanced" | "professional";
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/voice/generate", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function createVoiceValidation(payload: {
+  voiceUrl: string;
+  vocalStartS: number;
+  vocalEndS: number;
+  language: string;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/voice/validate", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function getVoiceValidationInfo(taskId: string) {
+  return sunoRequest<{
+    taskId: string;
+    status: string;
+    validateInfo?: string;
+    errorMessage?: string;
+  }>(`/voice/validate-info?taskId=${encodeURIComponent(taskId)}`, { method: "GET" });
+}
+
+export function getVoiceProfile(voiceId: string) {
+  return sunoRequest<{ voiceId: string; status: string; errorMessage?: string }>(
+    `/voice/record-info?voiceId=${encodeURIComponent(voiceId)}`,
+    { method: "GET" },
+  );
+}
+
+export function createPersona(payload: { taskId: string; callBackUrl: string }) {
+  return sunoRequest<{ taskId: string }>("/generate/persona", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function replaceMusicSection(payload: {
+  taskId: string;
+  audioId: string;
+  prompt: string;
+  sectionStart: number;
+  sectionEnd: number;
+  model: SunoModel;
+  callBackUrl: string;
+}) {
+  return sunoRequest<{ taskId: string }>("/generate/replace-section", {
     method: "POST",
     body: payload,
   });

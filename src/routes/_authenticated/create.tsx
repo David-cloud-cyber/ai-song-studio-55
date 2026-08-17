@@ -37,6 +37,7 @@ const MODELS = [
   { id: "V4_5", label: "v4.5", hint: "Équilibré" },
   { id: "V4_5PLUS", label: "v4.5+", hint: "Plus riche" },
   { id: "V5", label: "v5", hint: "Qualité max" },
+  { id: "V5_5", label: "v5.5", hint: "Studio avancé" },
 ] as const;
 
 const STRUCTURES = [
@@ -86,8 +87,10 @@ function CreatePage() {
   const [genre, setGenre] = useState(genres[0]);
   const [mood, setMood] = useState(moods[0]);
   const [voice, setVoice] = useState(voices[0]);
+  const [personaId, setPersonaId] = useState("");
+  const [voiceProfileId, setVoiceProfileId] = useState("");
   const [instrumental, setInstrumental] = useState(false);
-  const [model, setModel] = useState<(typeof MODELS)[number]["id"]>("V4_5");
+  const [model, setModel] = useState<(typeof MODELS)[number]["id"]>("V5_5");
   const [duration, setDuration] = useState(180);
   const [bpm, setBpm] = useState(120);
   const [structure, setStructure] = useState<(typeof STRUCTURES)[number]["id"]>(STRUCTURES[0].id);
@@ -103,6 +106,36 @@ function CreatePage() {
         .select("id,title,prompt,genre,mood,voice,instrumental,model,duration_seconds,style")
         .eq("id", search.sourceProjectId!)
         .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: personas = [] } = useQuery({
+    queryKey: ["music-personas", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("music_personas")
+        .select("id,name,provider_persona_id,status")
+        .eq("user_id", user!.id)
+        .eq("status", "ready")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: voiceProfiles = [] } = useQuery({
+    queryKey: ["voice-profiles", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("voice_profiles")
+        .select("id,name,status")
+        .eq("user_id", user!.id)
+        .eq("status", "ready")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -197,6 +230,8 @@ function CreatePage() {
             instrumental,
             customMode: true,
             model,
+            personaId: personaId || undefined,
+            voiceProfileId: voiceProfileId || undefined,
             durationSeconds: duration,
             coverGradient: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)],
             parentProjectId: search.sourceProjectId,
@@ -338,7 +373,7 @@ function CreatePage() {
               <Cpu className="size-4 text-zinc-400" />
               <span className="text-sm font-medium">Modèle</span>
             </div>
-            <div className="flex min-w-0 gap-1.5">
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-4">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
@@ -408,6 +443,44 @@ function CreatePage() {
               onChange={setVoice}
             />
           )}
+          {personas.length > 0 && (
+            <Select
+              icon={<Sparkles className="size-4" />}
+              label="Persona musicale"
+              value={
+                personaId
+                  ? (personas.find((item) => item.provider_persona_id === personaId)?.name ?? "")
+                  : "Aucune"
+              }
+              options={["Aucune", ...personas.map((item) => item.name)]}
+              onChange={(value) =>
+                setPersonaId(
+                  value === "Aucune"
+                    ? ""
+                    : (personas.find((item) => item.name === value)?.provider_persona_id ?? ""),
+                )
+              }
+            />
+          )}
+          {!instrumental && voiceProfiles.length > 0 && (
+            <Select
+              icon={<Mic2 className="size-4" />}
+              label="Voix personnelle"
+              value={
+                voiceProfileId
+                  ? (voiceProfiles.find((item) => item.id === voiceProfileId)?.name ?? "")
+                  : "Aucune"
+              }
+              options={["Aucune", ...voiceProfiles.map((item) => item.name)]}
+              onChange={(value) =>
+                setVoiceProfileId(
+                  value === "Aucune"
+                    ? ""
+                    : (voiceProfiles.find((item) => item.name === value)?.id ?? ""),
+                )
+              }
+            />
+          )}
 
           <div className="rounded-2xl border border-white/5 bg-surface p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -422,7 +495,7 @@ function CreatePage() {
             <input
               type="range"
               min={30}
-              max={360}
+              max={480}
               step={15}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}

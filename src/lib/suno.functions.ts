@@ -232,6 +232,8 @@ export const generateTrack = createServerFn({ method: "POST" })
         instrumental: z.boolean().default(false),
         customMode: z.boolean().default(true),
         model: z.enum(MODELS).default("V4_5"),
+        personaId: z.string().trim().max(120).optional(),
+        voiceProfileId: z.string().uuid().optional(),
         negativeTags: z.string().trim().max(200).optional(),
         durationSeconds: z.number().int().min(30).max(480).optional(),
         coverGradient: z.string().max(200).optional(),
@@ -263,6 +265,8 @@ export const generateTrack = createServerFn({ method: "POST" })
         progress: 5,
         instrumental: data.instrumental,
         model: data.model,
+        persona_id: data.personaId ?? null,
+        voice_profile_id: data.voiceProfileId ?? null,
         style,
         cover_gradient: data.coverGradient ?? null,
         parent_project_id: data.parentProjectId ?? null,
@@ -281,7 +285,13 @@ export const generateTrack = createServerFn({ method: "POST" })
       providerKind,
       idempotencyKey,
       providerCredits,
-      { prompt: data.prompt, style, model: data.model },
+      {
+        prompt: data.prompt,
+        style,
+        model: data.model,
+        personaId: data.personaId ?? null,
+        voiceProfileId: data.voiceProfileId ?? null,
+      },
     );
     if (claim.existing) {
       await supabase.from("projects").delete().eq("id", project.id);
@@ -309,6 +319,29 @@ export const generateTrack = createServerFn({ method: "POST" })
       });
 
       const { createSong } = await import("./suno.server");
+      let providerVoiceId: string | undefined;
+      if (data.voiceProfileId) {
+        const { data: voiceProfile } = await supabase
+          .from("voice_profiles")
+          .select("provider_voice_id,status")
+          .eq("id", data.voiceProfileId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!voiceProfile?.provider_voice_id || voiceProfile.status !== "ready") {
+          const message = "Cette voix n’est pas encore prête.";
+          await refundGeneration(
+            supabase,
+            userId,
+            reservedCredits,
+            project.id,
+            claim.job.id,
+            `Remboursement · ${message}`,
+          );
+          await markGenerationFailed(supabase, claim.job.id, project.id, message);
+          throw new Error(message);
+        }
+        providerVoiceId = voiceProfile.provider_voice_id;
+      }
       let taskId: string;
       try {
         const result = await createSong({
@@ -318,6 +351,9 @@ export const generateTrack = createServerFn({ method: "POST" })
           customMode: data.customMode,
           instrumental: data.instrumental,
           model: data.model,
+          personaId: data.personaId,
+          personaModel: Boolean(data.personaId),
+          voiceId: providerVoiceId,
           negativeTags: data.negativeTags,
           callBackUrl: callbackUrl("music"),
         });

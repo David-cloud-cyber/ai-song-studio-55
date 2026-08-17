@@ -32,6 +32,12 @@ import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { CoverArt } from "@/components/studio/CoverArt";
 import { useProjectSync } from "@/hooks/use-project-sync";
+import { TimelineEditor } from "@/components/studio/TimelineEditor";
+import {
+  createPersonaOperation,
+  replaceProjectSection,
+  separateStemsAdvanced,
+} from "@/lib/advanced-music.functions";
 
 export const Route = createFileRoute("/_authenticated/editor/$projectId")({
   head: () => ({
@@ -49,8 +55,20 @@ export const Route = createFileRoute("/_authenticated/editor/$projectId")({
 type StemState = {
   taskId?: string;
   status?: string;
+  mode?: string;
   vocalUrl?: string | null;
   instrumentalUrl?: string | null;
+  backingVocalsUrl?: string | null;
+  drumsUrl?: string | null;
+  bassUrl?: string | null;
+  guitarUrl?: string | null;
+  keyboardUrl?: string | null;
+  percussionUrl?: string | null;
+  stringsUrl?: string | null;
+  synthUrl?: string | null;
+  fxUrl?: string | null;
+  brassUrl?: string | null;
+  woodwindsUrl?: string | null;
 };
 
 function friendlyError(value: string | null | undefined) {
@@ -78,6 +96,9 @@ function EditorPage() {
   const runLyrics = useServerFn(generateProjectLyrics);
   const runWav = useServerFn(convertProjectToWav);
   const runVideo = useServerFn(createProjectVideo);
+  const runAdvancedStems = useServerFn(separateStemsAdvanced);
+  const runReplaceSection = useServerFn(replaceProjectSection);
+  const runPersona = useServerFn(createPersonaOperation);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["editor-project", projectId],
@@ -85,7 +106,7 @@ function EditorPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id,error_message",
+          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id,error_message,edit_state",
         )
         .eq("id", projectId)
         .maybeSingle();
@@ -98,6 +119,32 @@ function EditorPage() {
       (query.state.data?.stems as StemState | null)?.status === "processing"
         ? 5000
         : false,
+  });
+
+  const { data: timelineTracks = [] } = useQuery({
+    queryKey: ["project-tracks", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_tracks")
+        .select("id,label,role,asset_url,muted,solo,gain,fade_in_seconds,fade_out_seconds")
+        .eq("project_id", projectId)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: timelineSections = [] } = useQuery({
+    queryKey: ["project-sections", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_sections")
+        .select("id,label,section_type,start_seconds,end_seconds")
+        .eq("project_id", projectId)
+        .order("start_seconds");
+      if (error) throw error;
+      return data;
+    },
   });
 
   const { data: jobs = [] } = useQuery({
@@ -157,6 +204,7 @@ function EditorPage() {
       queryClient.invalidateQueries({ queryKey: ["project", project.id] }),
       queryClient.invalidateQueries({ queryKey: ["profile"] }),
       queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["music-personas"] }),
     ]);
   };
 
@@ -271,6 +319,33 @@ function EditorPage() {
               </p>
             </section>
 
+            {project.audio_url && (
+              <TimelineEditor
+                projectId={project.id}
+                audioUrl={project.audio_url}
+                duration={project.duration_seconds ?? 180}
+                initialState={(project.edit_state as Record<string, unknown> | null) ?? null}
+                initialTracks={timelineTracks}
+                initialSections={timelineSections}
+                onReplaceSection={(start, end, prompt) =>
+                  run(
+                    "replace-section",
+                    () =>
+                      runReplaceSection({
+                        data: {
+                          projectId: project.id,
+                          sectionStart: start,
+                          sectionEnd: end,
+                          prompt,
+                          requestId: crypto.randomUUID(),
+                        },
+                      }),
+                    "La nouvelle section est en préparation",
+                  )
+                }
+              />
+            )}
+
             <section className="rounded-2xl border border-white/5 bg-surface p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <ListMusic className="size-4 text-neon" />
@@ -299,6 +374,29 @@ function EditorPage() {
                   }
                 />
                 <ActionCard
+                  icon={<Wand2 className="size-4" />}
+                  title="Créer un persona"
+                  description={`${COSTS.persona} crédits · réutiliser ce style`}
+                  busy={busy === "persona"}
+                  disabled={!project.suno_task_id}
+                  onClick={() => {
+                    const name = window.prompt("Donne un nom à ce persona");
+                    if (!name?.trim()) return;
+                    void run(
+                      "persona",
+                      () =>
+                        runPersona({
+                          data: {
+                            projectId: project.id,
+                            name: name.trim(),
+                            requestId: crypto.randomUUID(),
+                          },
+                        }),
+                      "Le persona est en préparation",
+                    );
+                  }}
+                />
+                <ActionCard
                   icon={<ListMusic className="size-4" />}
                   title="Séparer les pistes"
                   description={`${COSTS.stems} crédits · voix et instrumental`}
@@ -312,6 +410,48 @@ function EditorPage() {
                           data: { projectId: project.id, requestId: crypto.randomUUID() },
                         }),
                       "La séparation des pistes est lancée",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<ListMusic className="size-4" />}
+                  title="Séparation avancée"
+                  description={`${COSTS.advancedStems} crédits · pistes détaillées`}
+                  busy={busy === "advanced-stems"}
+                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  onClick={() =>
+                    run(
+                      "advanced-stems",
+                      () =>
+                        runAdvancedStems({
+                          data: {
+                            projectId: project.id,
+                            mode: "advanced",
+                            requestId: crypto.randomUUID(),
+                          },
+                        }),
+                      "La séparation avancée est lancée",
+                    )
+                  }
+                />
+                <ActionCard
+                  icon={<ListMusic className="size-4" />}
+                  title="Toutes les pistes"
+                  description={`${COSTS.fullStems} crédits · séparation complète`}
+                  busy={busy === "full-stems"}
+                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  onClick={() =>
+                    run(
+                      "full-stems",
+                      () =>
+                        runAdvancedStems({
+                          data: {
+                            projectId: project.id,
+                            mode: "full",
+                            requestId: crypto.randomUUID(),
+                          },
+                        }),
+                      "La séparation complète est lancée",
                     )
                   }
                 />
@@ -457,6 +597,31 @@ function EditorPage() {
                     canDownload={canDownload}
                     downloadName={`${project.title}-instrumental.mp3`}
                   />
+                )}
+                {[
+                  ["Chœurs", stems.backingVocalsUrl],
+                  ["Batterie", stems.drumsUrl],
+                  ["Basse", stems.bassUrl],
+                  ["Guitare", stems.guitarUrl],
+                  ["Claviers", stems.keyboardUrl],
+                  ["Percussions", stems.percussionUrl],
+                  ["Cordes", stems.stringsUrl],
+                  ["Synthé", stems.synthUrl],
+                  ["FX", stems.fxUrl],
+                  ["Cuivres", stems.brassUrl],
+                  ["Bois", stems.woodwindsUrl],
+                ].map(
+                  ([label, url]) =>
+                    url && (
+                      <AudioPlayer
+                        key={String(label)}
+                        src={String(url)}
+                        seed={`${project.id}-${label}`}
+                        label={String(label)}
+                        canDownload={canDownload}
+                        downloadName={`${project.title}-${label}.mp3`}
+                      />
+                    ),
                 )}
               </section>
             )}

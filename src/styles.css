@@ -325,6 +325,16 @@
   }
 }
 
+@keyframes hero-float-mobile {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(1deg);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0) rotate(0deg);
+  }
+}
+
 @keyframes hero-float-right {
   0%,
   100% {
@@ -367,7 +377,7 @@
 }
 
 .hero-music-card-center {
-  animation: hero-float-center 8s ease-in-out infinite;
+  animation: hero-float-mobile 8s ease-in-out infinite;
 }
 
 .hero-music-card-right {
@@ -387,6 +397,12 @@
 
 .hero-wave-bar-active {
   animation: hero-wave-pulse 1.15s ease-in-out infinite;
+}
+
+@media (min-width: 768px) {
+  .hero-music-card-center {
+    animation: hero-float-center 8s ease-in-out infinite;
+  }
 }
 
 .animate-marquee {

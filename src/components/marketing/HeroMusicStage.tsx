@@ -247,7 +247,7 @@ export function HeroMusicStage({
           />
         </div>
       </div>
-      <div className="relative mx-auto mt-8 w-full max-w-sm md:hidden">
+      <div className="relative mx-auto mt-8 w-full max-w-[18rem] md:hidden">
         <HeroMusicCard
           item={mobileItem}
           position="center"

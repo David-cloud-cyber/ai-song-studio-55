@@ -305,6 +305,90 @@
   }
 }
 
+@keyframes hero-float-left {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-8deg);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0) rotate(-6deg);
+  }
+}
+
+@keyframes hero-float-center {
+  0%,
+  100% {
+    transform: translate3d(-50%, 0, 0) rotate(3deg);
+  }
+  50% {
+    transform: translate3d(-50%, -8px, 0) rotate(1deg);
+  }
+}
+
+@keyframes hero-float-right {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(8deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(6deg);
+  }
+}
+
+@keyframes hero-gradient-drift {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.06) translate3d(1%, -1%, 0);
+  }
+}
+
+@keyframes hero-wave-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+    opacity: 0.58;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.hero-gradient-drift {
+  animation: hero-gradient-drift 18s ease-in-out infinite;
+  transform-origin: center top;
+}
+
+.hero-music-card-left {
+  animation: hero-float-left 7s ease-in-out infinite;
+}
+
+.hero-music-card-center {
+  animation: hero-float-center 8s ease-in-out infinite;
+}
+
+.hero-music-card-right {
+  animation: hero-float-right 7.5s ease-in-out infinite;
+}
+
+.hero-preview-art {
+  background:
+    radial-gradient(circle at 22% 24%, rgb(117 230 255 / 0.92), transparent 32%),
+    radial-gradient(circle at 82% 78%, rgb(255 154 120 / 0.82), transparent 34%),
+    linear-gradient(135deg, rgb(24 33 43), rgb(86 63 150 / 0.86) 48%, rgb(9 12 16));
+}
+
+.hero-wave-bar {
+  transform-origin: bottom;
+}
+
+.hero-wave-bar-active {
+  animation: hero-wave-pulse 1.15s ease-in-out infinite;
+}
+
 .animate-marquee {
   display: flex;
   width: max-content;
@@ -323,5 +407,15 @@
   .marketing-title {
     font-size: clamp(2.15rem, 12vw, 3rem);
     line-height: 1.02;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-gradient-drift,
+  .hero-music-card-left,
+  .hero-music-card-center,
+  .hero-music-card-right,
+  .hero-wave-bar-active {
+    animation: none;
   }
 }

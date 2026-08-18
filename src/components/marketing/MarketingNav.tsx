@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
@@ -8,10 +8,10 @@ const links = [
   { label: "Fonctionnalités", to: "/features" },
   { label: "Galerie", href: "/#gallery" },
   { label: "Tarifs", to: "/pricing" },
-  { label: "FAQ", href: "/#faq" },
 ] as const;
 
 export function MarketingNav() {
+  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -22,14 +22,29 @@ export function MarketingNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const isActive = (link: (typeof links)[number]) => {
+    if ("to" in link)
+      return location.pathname === link.to || location.pathname.startsWith(`${link.to}/`);
+    return location.pathname === "/" && location.hash === link.href.slice(1);
+  };
+
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 border-b transition-colors duration-300",
+        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,box-shadow] duration-300",
         scrolled || open
-          ? "border-border-subtle bg-background/90 backdrop-blur-xl"
-          : "border-transparent bg-background/55 backdrop-blur-md",
+          ? "border-border-subtle bg-background/90 shadow-[0_18px_50px_-32px_rgba(117,230,255,0.8)] backdrop-blur-xl"
+          : "border-transparent bg-background/20 backdrop-blur-md",
       )}
+      data-scrolled={scrolled}
     >
       <div className="mx-auto flex h-[60px] w-full max-w-7xl items-center justify-between gap-4 px-4 sm:h-[68px] sm:px-6 lg:px-8">
         <Link to="/" className="flex min-w-0 shrink-0 items-center" onClick={() => setOpen(false)}>
@@ -50,17 +65,35 @@ export function MarketingNav() {
               <Link
                 key={link.label}
                 to={link.to}
-                className="transition-colors hover:text-foreground"
+                className={cn(
+                  "relative py-2 transition-colors hover:text-foreground",
+                  isActive(link) ? "text-foreground" : "text-muted-foreground",
+                )}
               >
                 {link.label}
+                <span
+                  className={cn(
+                    "absolute inset-x-2 -bottom-0.5 h-px origin-center bg-primary transition-transform duration-200",
+                    isActive(link) ? "scale-x-100" : "scale-x-0",
+                  )}
+                />
               </Link>
             ) : (
               <a
                 key={link.label}
                 href={link.href}
-                className="transition-colors hover:text-foreground"
+                className={cn(
+                  "relative py-2 transition-colors hover:text-foreground",
+                  isActive(link) ? "text-foreground" : "text-muted-foreground",
+                )}
               >
                 {link.label}
+                <span
+                  className={cn(
+                    "absolute inset-x-2 -bottom-0.5 h-px origin-center bg-primary transition-transform duration-200",
+                    isActive(link) ? "scale-x-100" : "scale-x-0",
+                  )}
+                />
               </a>
             ),
           )}
@@ -78,7 +111,7 @@ export function MarketingNav() {
             className="inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 sm:px-4 sm:text-sm"
           >
             <span className="sm:hidden">Créer</span>
-            <span className="hidden sm:inline">Commencer gratuitement</span>
+            <span className="hidden sm:inline">Créer gratuitement</span>
           </Link>
           <button
             type="button"
@@ -92,8 +125,16 @@ export function MarketingNav() {
         </div>
       </div>
 
-      {open && (
-        <div className="border-t border-border-subtle bg-background/95 px-4 pb-4 pt-2 lg:hidden">
+      <div
+        className={cn(
+          "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 lg:hidden",
+          open
+            ? "grid-rows-[1fr] opacity-100"
+            : "invisible pointer-events-none grid-rows-[0fr] opacity-0",
+        )}
+        aria-hidden={!open}
+      >
+        <div className="min-h-0 overflow-hidden border-t border-border-subtle bg-background/95 px-4 pb-4 pt-2">
           <nav className="mx-auto grid max-w-7xl gap-1" aria-label="Navigation mobile">
             {links.map((link) =>
               "to" in link ? (
@@ -101,7 +142,10 @@ export function MarketingNav() {
                   key={link.label}
                   to={link.to}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-surface hover:text-foreground"
+                  className={cn(
+                    "rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-surface hover:text-foreground",
+                    isActive(link) ? "bg-surface text-foreground" : "text-muted-foreground",
+                  )}
                 >
                   {link.label}
                 </Link>
@@ -110,7 +154,10 @@ export function MarketingNav() {
                   key={link.label}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-surface hover:text-foreground"
+                  className={cn(
+                    "rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-surface hover:text-foreground",
+                    isActive(link) ? "bg-surface text-foreground" : "text-muted-foreground",
+                  )}
                 >
                   {link.label}
                 </a>
@@ -125,7 +172,7 @@ export function MarketingNav() {
             </Link>
           </nav>
         </div>
-      )}
+      </div>
     </header>
   );
 }

@@ -9,6 +9,7 @@ import {
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { HeroPromptInput } from "@/components/marketing/HeroPromptInput";
+import { HeroMusicStage } from "@/components/marketing/HeroMusicStage";
 import { PricingSection } from "@/components/marketing/PricingSection";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -17,7 +18,6 @@ import {
   FinalCta as MarketingFinalCta,
   LogoStrip,
   MarketingShell,
-  Pill,
   ProductPreview,
   type PublicCreation,
 } from "@/components/marketing/MarketingPrimitives";
@@ -151,7 +151,7 @@ function Landing() {
         <div className="border-b border-border-subtle bg-surface-subtle/50 px-4 py-2 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:px-6">
           80 crédits chaque jour · écoute gratuite · exports réservés aux abonnés
         </div>
-        <Hero />
+        <Hero creations={creations} loading={galleryLoading} error={galleryError} />
         <TrustStrip />
         <FeatureSection />
         <GallerySection creations={creations} loading={galleryLoading} error={galleryError} />
@@ -163,7 +163,7 @@ function Landing() {
         <FaqSection />
         <MarketingFinalCta
           title="Ta prochaine idée mérite un espace pour grandir."
-          description="Commence gratuitement, écoute le résultat et décide ensuite comment aller plus loin."
+          description="Commence gratuitement, écoute le résultat et décide ensuite jusqu’où tu veux l’emmener."
         />
       </main>
       <MarketingFooter />
@@ -171,30 +171,35 @@ function Landing() {
   );
 }
 
-function Hero() {
+function Hero({
+  creations,
+  loading,
+  error,
+}: {
+  creations: PublicCreation[];
+  loading: boolean;
+  error: boolean;
+}) {
   return (
-    <section className="relative overflow-hidden px-4 pb-20 pt-16 sm:px-6 sm:pt-24 md:pb-28 md:pt-32">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(117,230,255,0.24),rgba(181,164,255,0.12)_34%,transparent_72%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(17,22,29,0.08)_0%,rgba(9,12,16,0.94)_78%)]" />
-      <div className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-secondary/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 top-16 size-72 rounded-full bg-accent/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
-      <div className="relative mx-auto max-w-5xl text-center">
-        <Pill>
-          <span className="size-1.5 rounded-full bg-primary" />
-          Ton atelier musical, toujours ouvert
-        </Pill>
-        <h1 className="marketing-title mx-auto mt-7 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.045em] sm:text-6xl md:text-7xl">
+    <section className="relative isolate overflow-hidden px-4 pb-20 pt-16 sm:px-6 sm:pt-24 md:pb-28 md:pt-32">
+      <div className="hero-gradient-drift pointer-events-none absolute -inset-[12%] bg-[radial-gradient(ellipse_at_50%_0%,rgba(117,230,255,0.34),rgba(181,164,255,0.17)_32%,rgba(255,154,120,0.14)_56%,transparent_76%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,transparent_0%,rgba(9,12,16,0.2)_54%,rgba(9,12,16,0.92)_90%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/80 to-transparent" />
+      <div className="relative z-10 mx-auto max-w-6xl text-center">
+        <p className="relative z-10 font-mono text-[10px] uppercase tracking-[0.26em] text-primary/85">
+          Ton espace pour créer
+        </p>
+        <h1 className="marketing-title relative z-10 mx-auto mt-5 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.05em] sm:text-6xl md:text-7xl">
           Fais entendre ce que tu as en tête.
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-7 text-muted-foreground sm:text-lg">
-          Décris une ambiance, un refrain ou une énergie. Loopster t’aide à transformer ton idée en
-          morceau, puis à lui donner ta propre direction.
+        <p className="relative z-10 mx-auto mt-5 max-w-xl text-balance text-base leading-7 text-muted-foreground sm:text-lg">
+          Décris une idée. Loopster la transforme en morceau que tu peux écouter, affiner et
+          partager.
         </p>
-        <div className="mt-9">
+        <div className="relative z-20 mt-8">
           <HeroPromptInput />
         </div>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+        <div className="relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <Check className="size-3.5 text-success" /> 80 crédits chaque jour
           </span>
@@ -205,6 +210,7 @@ function Hero() {
             <Check className="size-3.5 text-success" /> Aucune carte bancaire
           </span>
         </div>
+        <HeroMusicStage creations={creations} loading={loading} error={error} />
       </div>
     </section>
   );
@@ -215,7 +221,7 @@ function TrustStrip() {
     <section className="border-y border-border-subtle bg-surface-subtle/40 px-4 py-6 sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
         <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-          Une expérience pensée pour les artistes qui veulent passer de l’intuition à l’action.
+          De l’intuition au morceau, dans un espace qui suit ton rythme.
         </p>
         <LogoStrip labels={["Morceaux", "Instrumentales", "Voix", "Visuels"]} />
       </div>
@@ -229,8 +235,8 @@ function FeatureSection() {
       <div className="mx-auto max-w-6xl">
         <SectionIntro
           eyebrow="Un studio qui suit ton idée"
-          title="Tout ce qu’il faut pour créer sans perdre le fil."
-          description="Des outils simples au premier regard, suffisamment puissants quand ton projet prend de l’ampleur."
+          title="Une idée. Plusieurs directions. Un morceau à toi."
+          description="Commence avec quelques mots, puis affine chaque détail quand ton projet prend forme."
         />
         <div className="mt-12 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {featureCards.map((feature, index) => (
@@ -267,7 +273,7 @@ function GallerySection({
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionIntro
           eyebrow="Galerie Loopster"
-          title="Écoute ce que la communauté choisit de partager."
+          title="Écoute les créations que la communauté a choisi de partager."
           description="Chaque création affichée ici a été publiée volontairement par son auteur."
         />
       </div>
@@ -299,10 +305,7 @@ function WorkflowSection() {
   return (
     <section id="how" className="marketing-section px-4 py-24 sm:px-6 md:py-32">
       <div className="mx-auto max-w-6xl">
-        <SectionIntro
-          eyebrow="Ton rythme, ton espace"
-          title="De l’idée au morceau sans changer de pièce."
-        />
+        <SectionIntro eyebrow="Ton rythme, ton espace" title="Décris. Écoute. Affine. Publie." />
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {steps.map((step) => (
             <article
@@ -329,7 +332,7 @@ function StudioPreviewSection() {
         <SectionIntro
           eyebrow="Ton espace de création"
           title="Un studio clair quand ton idée devient plus ambitieuse."
-          description="Retrouve ton prompt, tes versions et ta prochaine action au même endroit, sans te perdre dans les réglages."
+          description="Retrouve ton prompt, tes versions et ta prochaine action au même endroit, sans perdre ton élan."
         />
         <ProductPreview />
       </div>
@@ -346,7 +349,10 @@ function TemplatesSection() {
     <section className="marketing-section border-y border-border-subtle bg-surface-subtle/35 px-4 py-24 sm:px-6 md:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <SectionIntro eyebrow="Points de départ" title="Commence avec la forme qui t’inspire." />
+          <SectionIntro
+            eyebrow="Points de départ"
+            title="Commence avec la forme qui te ressemble."
+          />
           <Link
             to="/templates"
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-foreground"
@@ -386,7 +392,7 @@ function RightsSection() {
             Quand ton projet est prêt
           </p>
           <h2 className="mt-3 max-w-xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            Écoute gratuitement. Exporte au bon moment.
+            Écoute gratuitement. Exporte quand ton morceau est prêt.
           </h2>
           <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
             Tes créations restent dans ta bibliothèque. Les formules payantes débloquent les exports

@@ -5,9 +5,8 @@ import { cn } from "@/lib/utils";
 
 const vibes = ["Phonk", "Synthwave", "Lo-fi", "R&B", "Cinématique"];
 const suggestions = [
-  "Un phonk sombre avec des cloches à 140 BPM",
-  "Une ballade R&B mélancolique avec voix féminine",
-  "Instrumental synthwave pour une virée de nuit",
+  "Phonk nocturne, cloches et 140 BPM",
+  "Ballade R&B mélancolique, voix aérienne",
 ];
 
 export function HeroPromptInput() {
@@ -61,17 +60,18 @@ export function HeroPromptInput() {
             }}
             rows={1}
             aria-label="Décris la musique que tu veux créer"
-            placeholder="Décris la musique que tu veux créer…"
+            placeholder="Décris ton idée musicale…"
             className="min-h-[52px] min-w-0 flex-1 resize-none overflow-y-hidden bg-transparent py-3 text-[15px] leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           <button
             type="button"
             onClick={submit}
             disabled={!prompt.trim()}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3 text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
             aria-label="Commencer la création"
           >
             <ArrowUp className="size-4" strokeWidth={2.6} />
+            <span className="hidden text-xs font-semibold sm:inline">Créer</span>
           </button>
         </div>
 
@@ -113,10 +113,6 @@ export function HeroPromptInput() {
           </button>
         ))}
       </div>
-
-      <p className="mt-4 text-center text-xs text-muted-foreground">
-        80 crédits offerts chaque jour · aucune carte bancaire pour commencer
-      </p>
     </div>
   );
 }

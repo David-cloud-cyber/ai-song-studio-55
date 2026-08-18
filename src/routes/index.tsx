@@ -149,7 +149,12 @@ function Landing() {
       <MarketingNav />
       <main className="pt-[60px] sm:pt-[68px]">
         <div className="border-b border-border-subtle bg-surface-subtle/50 px-4 py-2 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:px-6">
-          80 crédits chaque jour · écoute gratuite · exports réservés aux abonnés
+          <span className="whitespace-nowrap sm:hidden">
+            80 crédits/jour · écoute gratuite · sans carte
+          </span>
+          <span className="hidden sm:inline">
+            80 crédits chaque jour · écoute gratuite · exports réservés aux abonnés
+          </span>
         </div>
         <Hero creations={creations} loading={galleryLoading} error={galleryError} />
         <TrustStrip />

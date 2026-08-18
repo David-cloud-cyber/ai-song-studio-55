@@ -237,7 +237,7 @@ export function HeroMusicStage({
             onPause={() => pauseItem((items[2] ?? items[0]).id)}
           />
         </div>
-        <div className="pointer-events-auto absolute bottom-[-10rem] left-1/2 w-[min(27vw,285px)] -translate-x-1/2">
+        <div className="pointer-events-auto absolute bottom-[-18rem] left-1/2 w-[min(27vw,285px)] -translate-x-1/2">
           <HeroMusicCard
             item={mobileItem}
             position="center"

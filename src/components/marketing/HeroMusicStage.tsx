@@ -218,8 +218,8 @@ export function HeroMusicStage({
 
   return (
     <>
-      <div className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden md:block">
-        <div className="pointer-events-auto absolute left-[-3%] top-28 w-[min(22vw,230px)]">
+      <div className="pointer-events-none absolute inset-0 z-0 hidden overflow-visible lg:block">
+        <div className="pointer-events-auto absolute left-4 top-28 w-[min(20vw,220px)]">
           <HeroMusicCard
             item={items[0]}
             position="left"
@@ -228,7 +228,7 @@ export function HeroMusicStage({
             onPause={() => pauseItem(items[0].id)}
           />
         </div>
-        <div className="pointer-events-auto absolute right-[-3%] top-20 w-[min(24vw,255px)]">
+        <div className="pointer-events-auto absolute right-4 top-20 w-[min(20vw,235px)]">
           <HeroMusicCard
             item={items[2] ?? items[0]}
             position="right"
@@ -237,17 +237,8 @@ export function HeroMusicStage({
             onPause={() => pauseItem((items[2] ?? items[0]).id)}
           />
         </div>
-        <div className="pointer-events-auto absolute bottom-[-18rem] left-1/2 w-[min(27vw,285px)] -translate-x-1/2">
-          <HeroMusicCard
-            item={mobileItem}
-            position="center"
-            playing={playingId === mobileItem.id}
-            onPlay={() => playItem(mobileItem.id)}
-            onPause={() => pauseItem(mobileItem.id)}
-          />
-        </div>
       </div>
-      <div className="relative mx-auto mt-8 w-full max-w-[18rem] md:hidden">
+      <div className="relative mx-auto mt-8 w-full max-w-[18rem] lg:hidden">
         <HeroMusicCard
           item={mobileItem}
           position="center"

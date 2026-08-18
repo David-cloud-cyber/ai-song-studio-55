@@ -315,16 +315,6 @@
   }
 }
 
-@keyframes hero-float-center {
-  0%,
-  100% {
-    transform: translate3d(-50%, 0, 0) rotate(3deg);
-  }
-  50% {
-    transform: translate3d(-50%, -8px, 0) rotate(1deg);
-  }
-}
-
 @keyframes hero-float-mobile {
   0%,
   100% {
@@ -397,12 +387,6 @@
 
 .hero-wave-bar-active {
   animation: hero-wave-pulse 1.15s ease-in-out infinite;
-}
-
-@media (min-width: 768px) {
-  .hero-music-card-center {
-    animation: hero-float-center 8s ease-in-out infinite;
-  }
 }
 
 .animate-marquee {

@@ -126,19 +126,39 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             verifyAssetPath?: string;
           };
           if (!voiceId || !payload.voiceProfileId) return new Response("ok");
+          const { checkVoiceAvailability } = await import("@/lib/suno.server");
+          let available = false;
+          for (let attempt = 0; attempt < 3 && !available; attempt += 1) {
+            try {
+              available = (await checkVoiceAvailability(taskId)).isAvailable;
+            } catch {
+              available = false;
+            }
+            if (!available && attempt < 2)
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
           await supabaseAdmin
             .from("voice_profiles")
-            .update({ provider_voice_id: voiceId, status: "ready", error_message: null })
+            .update({
+              provider_voice_id: voiceId,
+              status: available ? "ready" : "checking",
+              error_message: available ? null : "La voix est encore en préparation.",
+            })
             .eq("id", payload.voiceProfileId)
             .eq("user_id", job.user_id);
-          const sourcePaths = [payload.sourceAssetPath, payload.verifyAssetPath].filter(
-            (path): path is string => Boolean(path),
-          );
-          if (sourcePaths.length > 0)
-            await supabaseAdmin.storage.from("voice-sources").remove(sourcePaths);
+          if (available) {
+            const sourcePaths = [payload.sourceAssetPath, payload.verifyAssetPath].filter(
+              (path): path is string => Boolean(path),
+            );
+            if (sourcePaths.length > 0)
+              await supabaseAdmin.storage.from("voice-sources").remove(sourcePaths);
+          }
           await supabaseAdmin
             .from("generation_jobs")
-            .update({ status: "completed", result: { voiceId } })
+            .update({
+              status: available ? "completed" : "processing",
+              result: { voiceId, available },
+            })
             .eq("id", job.id);
           return new Response("ok");
         }
@@ -217,13 +237,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             "downloadUrl",
           ]);
           if (wavUrl && job.project_id) {
-            const durableWavUrl = await persistGeneratedAsset(
+            const durableWavPath = await persistGeneratedAsset(
               supabaseAdmin,
               wavUrl,
               `${job.user_id}/${job.project_id}/master.wav`,
               "audio/wav",
             );
-            if (!durableWavUrl) {
+            if (!durableWavPath) {
               await refundFailedJob();
               await supabaseAdmin
                 .from("generation_jobs")
@@ -236,11 +256,11 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             }
             await supabaseAdmin
               .from("projects")
-              .update({ wav_url: durableWavUrl })
+              .update({ wav_path: durableWavPath, wav_url: null, public_wav_url: null })
               .eq("id", job.project_id);
             await supabaseAdmin
               .from("generation_jobs")
-              .update({ status: "completed", result: { wavUrl: durableWavUrl } })
+              .update({ status: "completed", result: { wavPath: durableWavPath } })
               .eq("id", job.id);
           }
           return new Response("ok");
@@ -255,13 +275,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             "downloadUrl",
           ]);
           if (videoUrl && job.project_id) {
-            const durableVideoUrl = await persistGeneratedAsset(
+            const durableVideoPath = await persistGeneratedAsset(
               supabaseAdmin,
               videoUrl,
               `${job.user_id}/${job.project_id}/video.mp4`,
               "video/mp4",
             );
-            if (!durableVideoUrl) {
+            if (!durableVideoPath) {
               await refundFailedJob();
               await supabaseAdmin
                 .from("generation_jobs")
@@ -271,11 +291,11 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             }
             await supabaseAdmin
               .from("projects")
-              .update({ video_url: durableVideoUrl })
+              .update({ video_path: durableVideoPath, video_url: null, public_video_url: null })
               .eq("id", job.project_id);
             await supabaseAdmin
               .from("generation_jobs")
-              .update({ status: "completed", result: { videoUrl: durableVideoUrl } })
+              .update({ status: "completed", result: { videoPath: durableVideoPath } })
               .eq("id", job.id);
           }
           return new Response("ok");
@@ -474,13 +494,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         if (job && job.kind === "cover") {
           const coverUrl = body.data?.images?.find((value) => typeof value === "string") ?? null;
           if (coverUrl && job.project_id) {
-            const durableCoverUrl = await persistGeneratedAsset(
+            const durableCoverPath = await persistGeneratedAsset(
               supabaseAdmin,
               coverUrl,
               `${job.user_id}/${job.project_id}/cover-generated.jpg`,
               "image/jpeg",
             );
-            if (!durableCoverUrl) {
+            if (!durableCoverPath) {
               await refundFailedJob();
               await supabaseAdmin
                 .from("generation_jobs")
@@ -493,11 +513,16 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             }
             await supabaseAdmin
               .from("projects")
-              .update({ image_url: durableCoverUrl, cover_url: durableCoverUrl })
+              .update({
+                image_path: durableCoverPath,
+                image_url: null,
+                cover_url: null,
+                public_image_url: null,
+              })
               .eq("id", job.project_id);
             await supabaseAdmin
               .from("generation_jobs")
-              .update({ status: "completed", result: { coverUrl: durableCoverUrl } })
+              .update({ status: "completed", result: { coverPath: durableCoverPath } })
               .eq("id", job.id);
           } else if (body.code !== undefined && body.code !== 200) {
             await refundFailedJob();
@@ -532,13 +557,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
 
         if (audioUrl) {
           if (!job?.project_id) return new Response("Job not found", { status: 503 });
-          const durableAudioUrl = await persistGeneratedAsset(
+          const durableAudioPath = await persistGeneratedAsset(
             supabaseAdmin,
             audioUrl,
             `${job.user_id}/${job.project_id}/master.mp3`,
             "audio/mpeg",
           );
-          const durableImageUrl = job?.project_id
+          const durableImagePath = job?.project_id
             ? await persistGeneratedAsset(
                 supabaseAdmin,
                 imageUrl,
@@ -546,7 +571,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                 "image/jpeg",
               )
             : imageUrl;
-          if (!durableAudioUrl) {
+          if (!durableAudioPath) {
             await refundFailedJob();
             await supabaseAdmin
               .from("projects")
@@ -570,9 +595,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             .update({
               status: "ready",
               progress: 100,
-              audio_url: durableAudioUrl,
-              image_url: durableImageUrl,
-              cover_url: durableImageUrl,
+              audio_path: durableAudioPath,
+              audio_url: null,
+              image_path: durableImagePath,
+              image_url: null,
+              cover_url: null,
+              public_audio_url: null,
+              public_image_url: null,
               suno_audio_id: clip?.id ?? null,
               duration_seconds: clip?.duration ? Math.round(clip.duration) : null,
               error_message: null,
@@ -592,8 +621,8 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               version_number: (latestVersion?.version_number ?? 0) + 1,
               label: job.kind === "replace-section" ? "Section remplacée" : "Version générée",
               prompt: clip?.prompt ?? null,
-              audio_url: durableAudioUrl,
-              cover_url: durableImageUrl,
+              audio_url: durableAudioPath,
+              cover_url: durableImagePath,
               created_by: job.user_id,
             })
             .select("id")
@@ -608,7 +637,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               version_id: createdVersion.id,
               role: "master",
               label: "Master audio",
-              asset_url: durableAudioUrl,
+              asset_url: durableAudioPath,
               end_seconds: clip?.duration ?? null,
             });
           }
@@ -616,7 +645,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             .from("generation_jobs")
             .update({
               status: "completed",
-              result: { audioUrl: durableAudioUrl, imageUrl: durableImageUrl },
+              result: { audioPath: durableAudioPath, imagePath: durableImagePath },
             })
             .eq("suno_task_id", taskId);
         } else {

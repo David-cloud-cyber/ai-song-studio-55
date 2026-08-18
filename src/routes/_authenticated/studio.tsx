@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, AudioLines, Image, Mic2, PenLine, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, AudioLines, Mic2, RefreshCw, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { useSession } from "@/hooks/use-session";
@@ -159,7 +159,7 @@ function Studio() {
 
       <section className="px-5 pt-10">
         <SectionHeader eyebrow="Outils de création" title="Choisir un point de départ" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           {[
             {
               id: "song",
@@ -173,8 +173,6 @@ function Studio() {
               description: "Beat et texture",
               icon: Mic2,
             },
-            { id: "lyrics", title: "Paroles", description: "Couplets et refrain", icon: PenLine },
-            { id: "cover", title: "Pochette", description: "Identité visuelle", icon: Image },
           ].map((tool) => {
             const Icon = tool.icon;
             return (

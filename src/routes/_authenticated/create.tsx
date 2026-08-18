@@ -142,7 +142,7 @@ function CreatePage() {
   });
 
   const template =
-    templates.find((t) => t.id === search.template) ??
+    templates.find((t) => t.id === search.template && (t.id === "song" || t.id === "instru")) ??
     templates.find((t) => t.id === "song") ??
     templates[0];
 
@@ -228,7 +228,7 @@ function CreatePage() {
             mood,
             voice,
             instrumental,
-            customMode: true,
+            customMode: false,
             model,
             personaId: personaId || undefined,
             voiceProfileId: voiceProfileId || undefined,

@@ -19,72 +19,72 @@ export const Route = createFileRoute("/changelog")({
 
 const updates = [
   {
+    version: "v2.5.0",
+    date: "18 Août 2026",
+    badge: "Majeur",
+    title: "Créations plus fiables, écoute immédiate",
+    description:
+      "Les nouvelles créations sont conservées dans ton espace et peuvent être écoutées directement depuis la bibliothèque.",
+    changes: [
+      {
+        icon: Music,
+        label: "Lecture",
+        text: "Un lecteur avec lecture, pause, progression et reprise accompagne chaque morceau prêt.",
+      },
+      {
+        icon: Shield,
+        label: "Fichiers",
+        text: "Les fichiers générés sont conservés dans Loopster avant d'être proposés à l'écoute.",
+      },
+      {
+        icon: Sparkles,
+        label: "Création",
+        text: "Le studio utilise désormais le modèle Loopster sélectionné et évite les options non prises en charge.",
+      },
+    ],
+  },
+  {
     version: "v2.4.0",
     date: "28 Juillet 2026",
-    badge: "Majeur",
-    title: "Moteur audio ultra-fluide & Lenis Smooth Scroll",
+    badge: "Feature",
+    title: "Un studio plus clair sur mobile",
     description:
-      "Intégration du nouveau système d'animations de défilement doux et optimisation globale de la restitution sonore en temps réel.",
+      "La création, la bibliothèque et les détails d'un projet s'adaptent aux petits écrans sans couper les actions importantes.",
     changes: [
       {
         icon: Zap,
-        label: "Expérience Visuelle",
-        text: "Ajout du défilement fluide Lenis sur l'ensemble de la plateforme.",
+        label: "Navigation",
+        text: "Les actions principales restent accessibles avec des boutons adaptés au toucher.",
       },
       {
-        icon: Cpu,
-        label: "Performance",
-        text: "Correction des avertissements d'hydratation SSR et rendu ultra-rapide des spectrogrammes.",
+        icon: Sparkles,
+        label: "Prompts",
+        text: "Les idées de départ sont transmises comme des descriptions créatives, sans les confondre avec des paroles.",
       },
       {
-        icon: Music,
-        label: "Génération Audio",
-        text: "Amélioration des transitions de mesure dans l'éditeur de stems.",
+        icon: Shield,
+        label: "Confiance",
+        text: "Les créations privées restent séparées de la galerie publique jusqu'à une publication volontaire.",
       },
     ],
   },
   {
     version: "v2.3.0",
     date: "15 Juillet 2026",
-    badge: "Feature",
-    title: "Export multi-pistes Stems HD (WAV 24-bit)",
+    badge: "Fix",
+    title: "Un espace projet mieux organisé",
     description:
-      "Exportez séparément la batterie, la basse, la mélodie et les voix synthétisées au format studio sans perte.",
+      "Chaque création rassemble maintenant son prompt, ses paroles, son audio, ses versions et ses exports au même endroit.",
     changes: [
       {
         icon: Music,
-        label: "Export HD",
-        text: "Support de l'export WAV 24-bit 48kHz pour tous les abonnements Pro.",
+        label: "Versions",
+        text: "Les remix, recréations et variantes restent liés au projet d'origine.",
       },
       {
         icon: Sparkles,
-        label: "IA Vocal Engine",
-        text: "4 nouveaux timbres vocaux français et anglais ajoutés à la banque IA.",
-      },
-      {
-        icon: Shield,
-        label: "Certificat Droits",
-        text: "Téléchargement direct de l'attestation de droits d'auteur sous licence commerciale.",
-      },
-    ],
-  },
-  {
-    version: "v2.1.2",
-    date: "02 Juillet 2026",
-    badge: "Fix",
-    title: "Améliorations de l'éditeur collaboratif",
-    description:
-      "Mise à jour des sessions de co-création en direct et synchronisation instantanée du lecteur principal.",
-    changes: [
-      {
-        icon: Zap,
-        label: "Temps Réel",
-        text: "Réduction de la latence de synchronisation sous les 50ms pour les utilisateurs en duo.",
-      },
-      {
-        icon: Sparkles,
-        label: "Presets Prompt",
-        text: "20 nouveaux templates créatifs ajoutés à la galerie communautaire.",
+        label: "Actions",
+        text: "Publier, retirer, remixer et recréer affichent un état clair et évitent les doubles clics.",
       },
     ],
   },
@@ -94,7 +94,7 @@ const updates = [
     badge: "Lancement",
     title: "Lancement officiel de Loopster v2",
     description:
-      "Refonte complète de l'interface utilisateur, nouveau studio mobile-first et génération audio instantanée sous Gemini 1.5 Pro audio pipeline.",
+      "Refonte de l'interface utilisateur, studio pensé pour le mobile et parcours de création musicale depuis une idée écrite.",
     changes: [
       {
         icon: Sparkles,
@@ -103,8 +103,8 @@ const updates = [
       },
       {
         icon: Cpu,
-        label: "Algorithme BeatGen",
-        text: "Génération de morceaux complets en moins de 5 secondes à partir d'un simple texte.",
+        label: "Création musicale",
+        text: "Lance une création depuis un prompt et suis son avancement jusqu'à la disponibilité du morceau.",
       },
     ],
   },

@@ -340,10 +340,8 @@ function StudioPreviewSection() {
 
 function TemplatesSection() {
   const templates = [
-    { title: "Morceau complet", description: "Voix et instru", icon: AudioLines },
-    { title: "Instrumental", description: "Beat et texture", icon: Play },
-    { title: "Paroles", description: "Couplets et refrain", icon: PenLine },
-    { title: "Pochette", description: "Identité visuelle", icon: Image },
+    { id: "song", title: "Morceau complet", description: "Voix et instru", icon: AudioLines },
+    { id: "instru", title: "Instrumental", description: "Beat et texture", icon: Play },
   ];
   return (
     <section className="marketing-section border-y border-border-subtle bg-surface-subtle/35 px-4 py-24 sm:px-6 md:py-32">
@@ -362,8 +360,9 @@ function TemplatesSection() {
             const Icon = template.icon;
             return (
               <Link
-                key={template.title}
+                key={template.id}
                 to="/auth"
+                search={{ redirect: `/create?template=${template.id}` }}
                 className="rounded-3xl border border-border bg-surface p-5 transition-colors hover:border-primary/40 hover:bg-surface-elevated"
               >
                 <Icon className="size-5 text-primary" />

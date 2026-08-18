@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Download, Lock } from "lucide-react";
 import { WaveformBars } from "./WaveformBars";
 import { cn } from "@/lib/utils";
+import { useMediaUrl } from "@/hooks/use-media-url";
 
 function peaks(seed: string, len = 48) {
   const s = seed.charCodeAt(0) + seed.length;
@@ -40,6 +41,7 @@ export function AudioPlayer({
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const resolvedSrc = useMediaUrl(src);
 
   useEffect(() => {
     setPlaying(false);
@@ -48,7 +50,7 @@ export function AudioPlayer({
     setError(false);
     setLoading(false);
     if (ref.current) ref.current.pause();
-  }, [src]);
+  }, [resolvedSrc]);
 
   useEffect(() => {
     const handleOtherAudio = (event: Event) => {
@@ -62,7 +64,7 @@ export function AudioPlayer({
 
   const toggle = async () => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !resolvedSrc) return;
     setError(false);
     if (el.paused) {
       setLoading(true);
@@ -143,9 +145,9 @@ export function AudioPlayer({
           </div>
         </div>
 
-        {!compact && canDownload && (
+        {!compact && canDownload && resolvedSrc && (
           <a
-            href={src}
+            href={resolvedSrc}
             download={downloadName ?? true}
             target="_blank"
             rel="noreferrer"
@@ -169,7 +171,7 @@ export function AudioPlayer({
 
       <audio
         ref={ref}
-        src={src}
+        src={resolvedSrc ?? undefined}
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}

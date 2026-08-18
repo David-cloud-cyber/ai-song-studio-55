@@ -5,6 +5,7 @@
 const BASE = "https://api.sunoapi.org/api/v1";
 
 export type SunoModel = "V3_5" | "V4" | "V4_5" | "V4_5PLUS" | "V4_5ALL" | "V5" | "V5_5";
+export type SunoMashupModel = "V4_5" | "V4_5PLUS" | "V4_5ALL" | "V5";
 
 export type SunoClip = {
   id: string;
@@ -105,8 +106,8 @@ export function createSong(payload: {
   instrumental: boolean;
   model: SunoModel;
   personaId?: string;
-  personaModel?: boolean;
-  voiceId?: string;
+  personaModel?: "style_persona" | "voice_persona";
+  duration?: number;
   negativeTags?: string;
   vocalGender?: "m" | "f";
   callBackUrl: string;
@@ -151,7 +152,9 @@ export function createMashup(payload: {
   style?: string;
   title?: string;
   customMode: boolean;
-  model: SunoModel;
+  model: SunoMashupModel;
+  instrumental?: boolean;
+  duration?: number;
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/generate/mashup", {
@@ -162,10 +165,11 @@ export function createMashup(payload: {
 
 export function createSound(payload: {
   prompt: string;
-  duration?: number;
-  loop?: boolean;
-  bpm?: number;
-  keyScale?: string;
+  model?: "V5";
+  soundLoop?: boolean;
+  soundTempo?: number;
+  soundKey?: string;
+  grabLyrics?: boolean;
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/generate/sounds", {
@@ -218,8 +222,23 @@ export function getVoiceProfile(voiceId: string) {
   );
 }
 
-export function createPersona(payload: { taskId: string; callBackUrl: string }) {
-  return sunoRequest<{ taskId: string }>("/generate/persona", {
+export function checkVoiceAvailability(taskId: string) {
+  return sunoRequest<{ isAvailable: boolean }>("/voice/check-voice", {
+    method: "POST",
+    body: { task_id: taskId },
+  });
+}
+
+export function createPersona(payload: {
+  taskId: string;
+  audioId: string;
+  name: string;
+  description?: string;
+  vocalStart?: number;
+  vocalEnd?: number;
+  style?: string;
+}) {
+  return sunoRequest<{ personaId: string }>("/generate/generate-persona", {
     method: "POST",
     body: payload,
   });
@@ -229,9 +248,12 @@ export function replaceMusicSection(payload: {
   taskId: string;
   audioId: string;
   prompt: string;
-  sectionStart: number;
-  sectionEnd: number;
-  model: SunoModel;
+  tags?: string;
+  title?: string;
+  negativeTags?: string;
+  infillStartS: number;
+  infillEndS: number;
+  fullLyrics?: string;
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/generate/replace-section", {

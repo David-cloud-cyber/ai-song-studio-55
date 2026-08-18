@@ -7,12 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { CoverArt } from "./CoverArt";
 import { WaveformBars } from "./WaveformBars";
+import { useMediaUrl } from "@/hooks/use-media-url";
 
 type LatestProject = {
   id: string;
   title: string;
   duration_seconds: number | null;
   audio_url: string | null;
+  audio_path: string | null;
   cover_gradient: string | null;
 };
 function duration(seconds: number | null) {
@@ -38,9 +40,9 @@ export function LivePlayerBar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id,title,duration_seconds,audio_url,cover_gradient")
+        .select("id,title,duration_seconds,audio_url,audio_path,cover_gradient")
         .eq("user_id", user!.id)
-        .not("audio_url", "is", null)
+        .or("audio_url.not.is.null,audio_path.not.is.null")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -54,7 +56,9 @@ export function LivePlayerBar() {
     setLoading(false);
     setError(false);
     if (audioRef.current) audioRef.current.pause();
-  }, [project?.id, project?.audio_url]);
+  }, [project?.id, project?.audio_url, project?.audio_path]);
+
+  const resolvedAudioUrl = useMediaUrl(project?.audio_path ?? project?.audio_url);
 
   useEffect(() => {
     const handleOtherAudio = (event: Event) => {
@@ -91,7 +95,7 @@ export function LivePlayerBar() {
     }
   };
 
-  if (!project?.audio_url) return null;
+  if (!project || !resolvedAudioUrl) return null;
   return (
     <div className="pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-border bg-surface/95 p-2.5 backdrop-blur-xl">
       <button
@@ -135,7 +139,7 @@ export function LivePlayerBar() {
       </Link>
       <audio
         ref={audioRef}
-        src={project.audio_url}
+        src={resolvedAudioUrl}
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}

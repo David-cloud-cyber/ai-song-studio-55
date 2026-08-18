@@ -24,6 +24,7 @@ type DbProject = {
   created_at: string;
   progress: number;
   audio_url: string | null;
+  audio_path: string | null;
   archived_at: string | null;
 };
 
@@ -81,7 +82,7 @@ function LibraryPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url,archived_at",
+          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url,audio_path,archived_at",
         )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
@@ -196,8 +197,13 @@ function LibraryPage() {
                     {formatDuration(p.duration_seconds)}
                   </div>
                 </Link>
-                {p.audio_url && p.status === "ready" && (
-                  <AudioPlayer src={p.audio_url} seed={p.id} compact className="mt-2" />
+                {(p.audio_path || p.audio_url) && p.status === "ready" && (
+                  <AudioPlayer
+                    src={p.audio_path ?? p.audio_url!}
+                    seed={p.id}
+                    compact
+                    className="mt-2"
+                  />
                 )}
               </div>
             ))}

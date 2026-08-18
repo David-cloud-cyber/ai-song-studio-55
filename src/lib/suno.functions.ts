@@ -230,12 +230,14 @@ export const generateTrack = createServerFn({ method: "POST" })
         mood: z.string().trim().max(100).optional(),
         voice: z.string().trim().max(100).optional(),
         instrumental: z.boolean().default(false),
-        customMode: z.boolean().default(true),
+        // A Loopster prompt is an idea by default. Custom Mode treats it as
+        // exact lyrics, so it must be explicitly requested by a future lyrics editor.
+        customMode: z.boolean().default(false),
         model: z.enum(MODELS).default("V4_5"),
         personaId: z.string().trim().max(120).optional(),
         voiceProfileId: z.string().uuid().optional(),
         negativeTags: z.string().trim().max(200).optional(),
-        durationSeconds: z.number().int().min(30).max(480).optional(),
+        durationSeconds: z.number().int().min(30).max(360).optional(),
         coverGradient: z.string().max(200).optional(),
         parentProjectId: z.string().uuid().optional(),
         requestId: z.string().uuid().optional(),
@@ -319,7 +321,10 @@ export const generateTrack = createServerFn({ method: "POST" })
       });
 
       const { createSong } = await import("./suno.server");
-      let providerVoiceId: string | undefined;
+      let providerPersonaId = data.personaId;
+      let personaModel: "style_persona" | "voice_persona" | undefined = data.personaId
+        ? "style_persona"
+        : undefined;
       if (data.voiceProfileId) {
         const { data: voiceProfile } = await supabase
           .from("voice_profiles")
@@ -340,7 +345,8 @@ export const generateTrack = createServerFn({ method: "POST" })
           await markGenerationFailed(supabase, claim.job.id, project.id, message);
           throw new Error(message);
         }
-        providerVoiceId = voiceProfile.provider_voice_id;
+        providerPersonaId = voiceProfile.provider_voice_id;
+        personaModel = "voice_persona";
       }
       let taskId: string;
       try {
@@ -351,9 +357,9 @@ export const generateTrack = createServerFn({ method: "POST" })
           customMode: data.customMode,
           instrumental: data.instrumental,
           model: data.model,
-          personaId: data.personaId,
-          personaModel: Boolean(data.personaId),
-          voiceId: providerVoiceId,
+          personaId: providerPersonaId,
+          personaModel,
+          duration: data.customMode && data.model === "V5_5" ? data.durationSeconds : undefined,
           negativeTags: data.negativeTags,
           callBackUrl: callbackUrl("music"),
         });
@@ -605,7 +611,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
-    if (!parent?.audio_url)
+    if (!parent || !(parent.audio_path ?? parent.audio_url))
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter une voix.");
     await assertCredits(supabase, userId, COSTS.vocals);
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
@@ -664,10 +670,17 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
       });
 
       const { addVocals } = await import("./suno.server");
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { getGeneratedAssetUrl } = await import("@/lib/persist-generated-asset.server");
+      const uploadUrl = await getGeneratedAssetUrl(
+        supabaseAdmin,
+        parent.audio_path ?? parent.audio_url,
+      );
+      if (!uploadUrl) throw new Error("Le fichier audio n'est pas accessible.");
       const result = await addVocals({
         prompt: data.prompt,
         title: `${parent.title} · voix IA`,
-        uploadUrl: parent.audio_url,
+        uploadUrl,
         style: parent.style ?? undefined,
         model: (parent.model as (typeof MODELS)[number]) ?? "V4_5PLUS",
         callBackUrl: callbackUrl("music"),
@@ -783,7 +796,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         prompt: data.prompt,
         style: style || undefined,
         title: data.title,
-        customMode: true,
+        customMode: false,
         instrumental: data.instrumental,
         model: data.model,
         callBackUrl: callbackUrl("music"),
@@ -825,7 +838,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
-    if (!parent?.audio_url)
+    if (!parent || !(parent.audio_path ?? parent.audio_url))
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter un instrumental.");
     await assertCredits(supabase, userId, COSTS.addInstrumental);
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
@@ -885,8 +898,15 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
       });
 
       const { addInstrumental } = await import("./suno.server");
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { getGeneratedAssetUrl } = await import("@/lib/persist-generated-asset.server");
+      const uploadUrl = await getGeneratedAssetUrl(
+        supabaseAdmin,
+        parent.audio_path ?? parent.audio_url,
+      );
+      if (!uploadUrl) throw new Error("Le fichier audio n'est pas accessible.");
       const result = await addInstrumental({
-        uploadUrl: parent.audio_url,
+        uploadUrl,
         title: `${parent.title} · instrumental`,
         tags: parent.style ?? parent.genre ?? undefined,
         model: (parent.model as (typeof MODELS)[number]) ?? "V4_5PLUS",
@@ -1218,19 +1238,19 @@ export const syncProject = createServerFn({ method: "POST" })
           .eq("id", project.id);
         changed = true;
       } else if (clip?.audioUrl) {
-        const durableAudioUrl = await persistGeneratedAsset(
+        const durableAudioPath = await persistGeneratedAsset(
           supabaseAdmin,
           clip.audioUrl,
           `${project.user_id}/${project.id}/master.mp3`,
           "audio/mpeg",
         );
-        const durableImageUrl = await persistGeneratedAsset(
+        const durableImagePath = await persistGeneratedAsset(
           supabaseAdmin,
           clip.imageUrl,
           `${project.user_id}/${project.id}/cover.jpg`,
           "image/jpeg",
         );
-        if (!durableAudioUrl) {
+        if (!durableAudioPath) {
           const message = "Le fichier audio n'a pas pu être conservé dans Loopster.";
           await failProviderJob(supabaseAdmin, project.suno_task_id, project.id, message);
           await supabase
@@ -1245,17 +1265,21 @@ export const syncProject = createServerFn({ method: "POST" })
           .update({
             status: "ready",
             progress: 100,
-            audio_url: durableAudioUrl,
-            image_url: durableImageUrl,
-            cover_url: durableImageUrl,
+            audio_path: durableAudioPath,
+            audio_url: null,
+            image_path: durableImagePath,
+            image_url: null,
+            cover_url: null,
+            public_audio_url: null,
+            public_image_url: null,
             suno_audio_id: clip.id,
             duration_seconds: clip.duration ? Math.round(clip.duration) : project.duration_seconds,
             error_message: null,
           })
           .eq("id", project.id);
         await completeProviderJob(supabaseAdmin, project.suno_task_id, {
-          audioUrl: durableAudioUrl,
-          imageUrl: durableImageUrl,
+          audioPath: durableAudioPath,
+          imagePath: durableImagePath,
         });
         changed = true;
       } else {
@@ -1279,19 +1303,19 @@ export const syncProject = createServerFn({ method: "POST" })
           .eq("id", project.id);
         changed = true;
       } else if (stemInfo.response?.vocalUrl || stemInfo.response?.instrumentalUrl) {
-        const durableVocalUrl = await persistGeneratedAsset(
+        const durableVocalPath = await persistGeneratedAsset(
           supabaseAdmin,
           stemInfo.response.vocalUrl,
           `${project.user_id}/${project.id}/stems-vocal.mp3`,
           "audio/mpeg",
         );
-        const durableInstrumentalUrl = await persistGeneratedAsset(
+        const durableInstrumentalPath = await persistGeneratedAsset(
           supabaseAdmin,
           stemInfo.response.instrumentalUrl,
           `${project.user_id}/${project.id}/stems-instrumental.mp3`,
           "audio/mpeg",
         );
-        const durableOriginUrl = await persistGeneratedAsset(
+        const durableOriginPath = await persistGeneratedAsset(
           supabaseAdmin,
           stemInfo.response.originUrl,
           `${project.user_id}/${project.id}/stems-original.mp3`,
@@ -1303,16 +1327,16 @@ export const syncProject = createServerFn({ method: "POST" })
             stems: {
               ...stems,
               status: "ready",
-              vocalUrl: durableVocalUrl,
-              instrumentalUrl: durableInstrumentalUrl,
-              originUrl: durableOriginUrl,
+              vocalUrl: durableVocalPath,
+              instrumentalUrl: durableInstrumentalPath,
+              originUrl: durableOriginPath,
             },
           })
           .eq("id", project.id);
         await completeProviderJob(supabaseAdmin, stems.taskId, {
-          vocalUrl: durableVocalUrl,
-          instrumentalUrl: durableInstrumentalUrl,
-          originUrl: durableOriginUrl,
+          vocalPath: durableVocalPath,
+          instrumentalPath: durableInstrumentalPath,
+          originPath: durableOriginPath,
         });
         changed = true;
       }

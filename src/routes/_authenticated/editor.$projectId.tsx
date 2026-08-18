@@ -32,6 +32,7 @@ import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { CoverArt } from "@/components/studio/CoverArt";
 import { useProjectSync } from "@/hooks/use-project-sync";
+import { useMediaUrl } from "@/hooks/use-media-url";
 import { TimelineEditor } from "@/components/studio/TimelineEditor";
 import {
   createPersonaOperation,
@@ -106,7 +107,7 @@ function EditorPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,prompt,genre,model,status,cover_gradient,image_url,cover_url,audio_url,wav_url,video_url,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id,error_message,edit_state",
+          "id,title,prompt,genre,model,status,cover_gradient,image_url,image_path,cover_url,audio_url,audio_path,wav_url,wav_path,video_url,video_path,lyrics,stems,duration_seconds,progress,suno_task_id,suno_audio_id,error_message,edit_state",
         )
         .eq("id", projectId)
         .maybeSingle();
@@ -178,6 +179,15 @@ function EditorPage() {
     project?.status === "rendering" || projectStems?.status === "processing",
   );
 
+  const audioSource = project?.audio_path ?? project?.audio_url;
+  const coverSource = project?.image_path ?? project?.image_url ?? project?.cover_url;
+  const videoSource = project?.video_path ?? project?.video_url;
+  const wavSource = project?.wav_path ?? project?.wav_url;
+  const audioUrl = useMediaUrl(audioSource);
+  const coverUrl = useMediaUrl(coverSource);
+  const videoUrl = useMediaUrl(videoSource);
+  const wavUrl = useMediaUrl(wavSource);
+
   if (isLoading || !project) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">
@@ -192,7 +202,7 @@ function EditorPage() {
     const status = latestJob(kind)?.status;
     return status === "pending" || status === "processing";
   };
-  const cover = project.image_url ?? project.cover_url;
+  const cover = coverUrl;
   const gradient = project.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700";
   const duration = project.duration_seconds
     ? `${Math.floor(project.duration_seconds / 60)}:${String(project.duration_seconds % 60).padStart(2, "0")}`
@@ -291,9 +301,9 @@ function EditorPage() {
                   )}
                 </div>
               </div>
-              {project.audio_url ? (
+              {audioSource ? (
                 <AudioPlayer
-                  src={project.audio_url}
+                  src={audioSource}
                   seed={project.id}
                   label="Master audio"
                   downloadName={`${project.title}.mp3`}
@@ -319,10 +329,10 @@ function EditorPage() {
               </p>
             </section>
 
-            {project.audio_url && (
+            {audioUrl && (
               <TimelineEditor
                 projectId={project.id}
-                audioUrl={project.audio_url}
+                audioUrl={audioUrl}
                 duration={project.duration_seconds ?? 180}
                 initialState={(project.edit_state as Record<string, unknown> | null) ?? null}
                 initialTracks={timelineTracks}
@@ -460,7 +470,7 @@ function EditorPage() {
                   title="Ajouter une voix"
                   description={`${COSTS.vocals} crédits · crée une version chantée`}
                   busy={busy === "vocals"}
-                  disabled={!project.audio_url}
+                  disabled={!audioSource}
                   onClick={() =>
                     run(
                       "vocals",
@@ -483,7 +493,7 @@ function EditorPage() {
                   title="Ajouter un instrumental"
                   description={`${COSTS.addInstrumental} crédits · crée une version instru`}
                   busy={busy === "instrumental"}
-                  disabled={!project.audio_url}
+                  disabled={!audioSource}
                   onClick={() =>
                     run(
                       "instrumental",
@@ -503,14 +513,12 @@ function EditorPage() {
                   description={
                     jobIsRunning("wav")
                       ? "Préparation en cours…"
-                      : project.wav_url
+                      : wavSource
                         ? "Fichier WAV disponible"
                         : `${COSTS.wav} crédits · export haute qualité`
                   }
                   busy={busy === "wav" || jobIsRunning("wav")}
-                  disabled={
-                    !project.suno_audio_id || Boolean(project.wav_url) || jobIsRunning("wav")
-                  }
+                  disabled={!project.suno_audio_id || Boolean(wavSource) || jobIsRunning("wav")}
                   onClick={() =>
                     run(
                       "wav",
@@ -526,16 +534,12 @@ function EditorPage() {
                   description={
                     jobIsRunning("cover")
                       ? "Préparation en cours…"
-                      : project.image_url || project.cover_url
+                      : coverSource
                         ? "Pochette disponible"
                         : "Gratuit · 2 styles visuels"
                   }
                   busy={jobIsRunning("cover")}
-                  disabled={
-                    !project.suno_task_id ||
-                    Boolean(project.image_url || project.cover_url) ||
-                    jobIsRunning("cover")
-                  }
+                  disabled={!project.suno_task_id || Boolean(coverSource) || jobIsRunning("cover")}
                   onClick={() =>
                     run(
                       "cover",
@@ -553,14 +557,12 @@ function EditorPage() {
                   description={
                     jobIsRunning("video")
                       ? "Préparation en cours…"
-                      : project.video_url
+                      : videoSource
                         ? "Vidéo disponible"
                         : `${COSTS.video} crédits · clip synchronisé`
                   }
                   busy={busy === "video" || jobIsRunning("video")}
-                  disabled={
-                    !project.suno_audio_id || Boolean(project.video_url) || jobIsRunning("video")
-                  }
+                  disabled={!project.suno_audio_id || Boolean(videoSource) || jobIsRunning("video")}
                   onClick={() =>
                     run(
                       "video",
@@ -683,9 +685,9 @@ function EditorPage() {
                   Débloquer les exports
                 </Link>
               )}
-              {canDownload && project.audio_url && (
+              {canDownload && audioUrl && (
                 <a
-                  href={project.audio_url}
+                  href={audioUrl}
                   download={`${project.title}.mp3`}
                   target="_blank"
                   rel="noreferrer"
@@ -694,9 +696,9 @@ function EditorPage() {
                   <Download className="size-4" /> Télécharger le MP3
                 </a>
               )}
-              {project.wav_url && canDownload && (
+              {wavUrl && canDownload && (
                 <a
-                  href={project.wav_url}
+                  href={wavUrl}
                   download={`${project.title}.wav`}
                   target="_blank"
                   rel="noreferrer"
@@ -705,9 +707,9 @@ function EditorPage() {
                   <FileAudio className="size-4" /> Télécharger le WAV
                 </a>
               )}
-              {project.video_url && canDownload && (
+              {videoUrl && canDownload && (
                 <a
-                  href={project.video_url}
+                  href={videoUrl}
                   download={`${project.title}.mp4`}
                   target="_blank"
                   rel="noreferrer"

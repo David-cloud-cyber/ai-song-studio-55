@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/studio/StatusBadge";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { useProjectSync } from "@/hooks/use-project-sync";
+import { useMediaUrl } from "@/hooks/use-media-url";
 import { useProfile } from "@/hooks/use-profile";
 import { isPaidPlan } from "@/lib/plans";
 import {
@@ -21,6 +22,7 @@ import {
   createProjectCover,
   COSTS,
 } from "@/lib/suno.functions";
+import { setProjectVisibility } from "@/lib/media.functions";
 import {
   ArrowLeft,
   Archive,
@@ -68,12 +70,14 @@ type Project = {
   cover_gradient: string | null;
   cover_url: string | null;
   image_url: string | null;
+  image_path: string | null;
   tags: string[];
   prompt: string | null;
   lyrics: string | null;
   is_favorite: boolean;
   progress: number;
   audio_url: string | null;
+  audio_path: string | null;
   suno_task_id: string | null;
   suno_audio_id: string | null;
   instrumental: boolean;
@@ -81,7 +85,9 @@ type Project = {
   stems: Stems | null;
   error_message: string | null;
   wav_url: string | null;
+  wav_path: string | null;
   video_url: string | null;
+  video_path: string | null;
   is_public: boolean;
   published_at: string | null;
   archived_at: string | null;
@@ -161,6 +167,7 @@ function ProjectDetail() {
   const runWav = useServerFn(convertProjectToWav);
   const runVideo = useServerFn(createProjectVideo);
   const runCover = useServerFn(createProjectCover);
+  const runVisibility = useServerFn(setProjectVisibility);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -241,6 +248,15 @@ function ProjectDetail() {
     project?.status === "rendering" || (!!stems?.taskId && stems.status === "processing");
   useProjectSync(project?.id, needsSync);
 
+  const audioSource = project?.audio_path ?? project?.audio_url;
+  const coverSource = project?.image_path ?? project?.image_url ?? project?.cover_url;
+  const videoSource = project?.video_path ?? project?.video_url;
+  const wavSource = project?.wav_path ?? project?.wav_url;
+  const audioUrl = useMediaUrl(audioSource);
+  const coverUrl = useMediaUrl(coverSource);
+  const videoUrl = useMediaUrl(videoSource);
+  const wavUrl = useMediaUrl(wavSource);
+
   if (isLoading || !project) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-400">
@@ -250,7 +266,7 @@ function ProjectDetail() {
   }
 
   const gradient = project.cover_gradient ?? "from-cyan-400 via-blue-600 to-fuchsia-700";
-  const cover = project.image_url ?? project.cover_url;
+  const cover = coverUrl;
   const isArchived = Boolean(project.archived_at);
 
   const doExtend = async () => {
@@ -442,22 +458,19 @@ function ProjectDetail() {
   };
 
   const togglePublic = async () => {
-    if (publishing || isArchived || project.status !== "ready" || !project.audio_url) return;
+    if (publishing || isArchived || project.status !== "ready" || !audioSource) return;
     setPublishing(true);
     const next = !project.is_public;
-    const { error } = await supabase
-      .from("projects")
-      .update({
-        is_public: next,
-        published_at: next ? new Date().toISOString() : null,
-      })
-      .eq("id", project.id);
-
-    if (error) {
+    try {
+      await runVisibility({ data: { projectId: project.id, isPublic: next } });
+    } catch (error) {
       toast.error("La galerie n'a pas pu être mise à jour", {
-        description: "On retente dans un instant ?",
+        description: error instanceof Error ? error.message : "On retente dans un instant ?",
       });
-    } else {
+      setPublishing(false);
+      return;
+    }
+    {
       await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
       await queryClient.invalidateQueries({ queryKey: ["public-creations"] });
       toast.success(next ? "Création publiée dans la galerie" : "Création retirée de la galerie");
@@ -642,9 +655,9 @@ function ProjectDetail() {
             </div>
           )}
 
-          {project.audio_url && (
+          {audioSource && (
             <AudioPlayer
-              src={project.audio_url}
+              src={audioSource}
               seed={project.id}
               downloadName={`${project.title}.mp3`}
               canDownload={canDownload}
@@ -703,7 +716,7 @@ function ProjectDetail() {
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               onClick={doVocals}
-              disabled={isArchived || !project.audio_url || busy !== null}
+              disabled={isArchived || !audioSource || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-neon/20 bg-neon/5 py-2.5 text-xs font-semibold text-neon disabled:opacity-40"
             >
               {busy === "vocals" ? (
@@ -715,7 +728,7 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doInstrumental}
-              disabled={isArchived || !project.audio_url || busy !== null}
+              disabled={isArchived || !audioSource || busy !== null}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "instrumental" ? (
@@ -749,9 +762,7 @@ function ProjectDetail() {
             <button
               type="button"
               onClick={() => void togglePublic()}
-              disabled={
-                isArchived || publishing || project.status !== "ready" || !project.audio_url
-              }
+              disabled={isArchived || publishing || project.status !== "ready" || !audioSource}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               {publishing ? (
@@ -914,9 +925,9 @@ function ProjectDetail() {
 
           {tab === "Audio" && (
             <div className="space-y-3">
-              {project.audio_url ? (
+              {audioSource ? (
                 <AudioPlayer
-                  src={project.audio_url}
+                  src={audioSource}
                   seed={project.id}
                   label="Master"
                   downloadName={`${project.title}.mp3`}
@@ -1011,11 +1022,11 @@ function ProjectDetail() {
             ))}
 
           {tab === "Vidéo" &&
-            (project.video_url ? (
+            (videoSource && videoUrl ? (
               <video
                 controls
                 preload="metadata"
-                src={project.video_url}
+                src={videoUrl}
                 className="w-full max-w-3xl rounded-2xl border border-white/10 bg-black"
               >
                 Ton navigateur ne peut pas lire cette vidéo.
@@ -1028,9 +1039,9 @@ function ProjectDetail() {
 
           {tab === "Exports" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {canDownload && project.audio_url && (
+              {canDownload && audioUrl && (
                 <a
-                  href={project.audio_url}
+                  href={audioUrl}
                   download={`${project.title}.mp3`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >
@@ -1038,9 +1049,9 @@ function ProjectDetail() {
                   <FileAudio className="size-4 text-neon" />
                 </a>
               )}
-              {canDownload && project.wav_url && (
+              {canDownload && wavUrl && (
                 <a
-                  href={project.wav_url}
+                  href={wavUrl}
                   download={`${project.title}.wav`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >
@@ -1048,9 +1059,9 @@ function ProjectDetail() {
                   <FileAudio className="size-4 text-neon" />
                 </a>
               )}
-              {canDownload && project.video_url && (
+              {canDownload && videoUrl && (
                 <a
-                  href={project.video_url}
+                  href={videoUrl}
                   download={`${project.title}.mp4`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >
@@ -1067,7 +1078,7 @@ function ProjectDetail() {
                   <FileAudio className="size-4 shrink-0" />
                 </a>
               )}
-              {canDownload && !project.wav_url && !project.video_url && (
+              {canDownload && !wavSource && !videoSource && (
                 <div className="rounded-2xl border border-dashed border-white/10 p-6 text-sm text-zinc-400 sm:col-span-2">
                   Les exports WAV et vidéo apparaîtront ici après leur traitement.
                 </div>

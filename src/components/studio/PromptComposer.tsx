@@ -49,7 +49,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
           mood: active[1],
           voice: active.includes("Voix féminine") ? "Voix féminine" : undefined,
           instrumental: false,
-          customMode: true,
+          customMode: false,
           model: "V4_5",
           requestId: crypto.randomUUID(),
         },

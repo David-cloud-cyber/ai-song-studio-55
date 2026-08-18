@@ -30,6 +30,7 @@ function TemplatesPage() {
 
   const filtered = useMemo(() => {
     return templates.filter((t) => {
+      if (t.id !== "song" && t.id !== "instru") return false;
       const m = templateMeta[t.id];
       const query = q.trim().toLowerCase();
       if (query) {

@@ -291,6 +291,7 @@ export type Database = {
       projects: {
         Row: {
           audio_url: string | null;
+          audio_path: string | null;
           active_version_id: string | null;
           archived_at: string | null;
           cover_gradient: string | null;
@@ -302,6 +303,7 @@ export type Database = {
           genre: string | null;
           id: string;
           image_url: string | null;
+          image_path: string | null;
           instrumental: boolean;
           is_public: boolean;
           is_favorite: boolean;
@@ -323,12 +325,19 @@ export type Database = {
           updated_at: string;
           user_id: string;
           video_url: string | null;
+          video_path: string | null;
           wav_url: string | null;
+          wav_path: string | null;
+          public_audio_url: string | null;
+          public_image_url: string | null;
+          public_wav_url: string | null;
+          public_video_url: string | null;
           voice: string | null;
           voice_profile_id: string | null;
         };
         Insert: {
           audio_url?: string | null;
+          audio_path?: string | null;
           active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
@@ -340,6 +349,7 @@ export type Database = {
           genre?: string | null;
           id?: string;
           image_url?: string | null;
+          image_path?: string | null;
           instrumental?: boolean;
           is_public?: boolean;
           is_favorite?: boolean;
@@ -361,12 +371,19 @@ export type Database = {
           updated_at?: string;
           user_id: string;
           video_url?: string | null;
+          video_path?: string | null;
           wav_url?: string | null;
+          wav_path?: string | null;
+          public_audio_url?: string | null;
+          public_image_url?: string | null;
+          public_wav_url?: string | null;
+          public_video_url?: string | null;
           voice?: string | null;
           voice_profile_id?: string | null;
         };
         Update: {
           audio_url?: string | null;
+          audio_path?: string | null;
           active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
@@ -378,6 +395,7 @@ export type Database = {
           genre?: string | null;
           id?: string;
           image_url?: string | null;
+          image_path?: string | null;
           instrumental?: boolean;
           is_public?: boolean;
           is_favorite?: boolean;
@@ -399,7 +417,13 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
           video_url?: string | null;
+          video_path?: string | null;
           wav_url?: string | null;
+          wav_path?: string | null;
+          public_audio_url?: string | null;
+          public_image_url?: string | null;
+          public_wav_url?: string | null;
+          public_video_url?: string | null;
           voice?: string | null;
           voice_profile_id?: string | null;
         };

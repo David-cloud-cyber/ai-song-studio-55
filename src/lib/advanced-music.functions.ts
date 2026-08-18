@@ -128,7 +128,7 @@ async function projectFor(supabase: Client, projectId: string) {
   const { data, error } = await supabase
     .from("projects")
     .select(
-      "id,user_id,title,prompt,genre,mood,voice,style,model,audio_url,suno_audio_id,suno_task_id,cover_gradient,tags,instrumental,duration_seconds",
+      "id,user_id,title,prompt,lyrics,genre,mood,voice,style,model,audio_url,audio_path,suno_audio_id,suno_task_id,cover_gradient,tags,instrumental,duration_seconds",
     )
     .eq("id", projectId)
     .maybeSingle();
@@ -229,7 +229,7 @@ export const createMashupOperation = createServerFn({ method: "POST" })
         secondProjectId: z.string().uuid(),
         title: z.string().trim().min(1).max(120),
         prompt: z.string().trim().max(4000).optional(),
-        model: z.enum(["V4_5", "V4_5PLUS", "V4_5ALL", "V5", "V5_5"]).default("V5_5"),
+        model: z.enum(["V4_5", "V4_5PLUS", "V4_5ALL", "V5"]).default("V5"),
         requestId: z.string().uuid().optional(),
       })
       .parse(input),
@@ -242,7 +242,7 @@ export const createMashupOperation = createServerFn({ method: "POST" })
       projectFor(supabase, data.firstProjectId),
       projectFor(supabase, data.secondProjectId),
     ]);
-    if (!first.audio_url || !second.audio_url)
+    if (!(first.audio_path ?? first.audio_url) || !(second.audio_path ?? second.audio_url))
       throw new Error("Les deux créations doivent avoir un audio.");
     const project = await childProject(supabase, userId, first, data.title, data.prompt);
     const operation = await startOperation({
@@ -255,13 +255,22 @@ export const createMashupOperation = createServerFn({ method: "POST" })
       payload: { firstProjectId: first.id, secondProjectId: second.id, model: data.model },
       launch: async () => {
         const { createMashup } = await import("@/lib/suno.server");
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { getGeneratedAssetUrl } = await import("@/lib/persist-generated-asset.server");
+        const [firstUrl, secondUrl] = await Promise.all([
+          getGeneratedAssetUrl(supabaseAdmin, first.audio_path ?? first.audio_url),
+          getGeneratedAssetUrl(supabaseAdmin, second.audio_path ?? second.audio_url),
+        ]);
+        if (!firstUrl || !secondUrl)
+          throw new Error("Les deux fichiers audio ne sont pas accessibles.");
         const result = await createMashup({
-          uploadUrlList: [first.audio_url!, second.audio_url!],
+          uploadUrlList: [firstUrl, secondUrl],
           prompt: data.prompt,
           style: first.style ?? second.style ?? undefined,
           title: data.title,
           customMode: true,
-          model: data.model as Model,
+          model: data.model,
+          instrumental: first.instrumental && second.instrumental,
           callBackUrl: callbackUrl("mashup"),
         });
         await supabase
@@ -318,9 +327,11 @@ export const createSoundEffect = createServerFn({ method: "POST" })
         const { createSound } = await import("@/lib/suno.server");
         const result = await createSound({
           prompt: data.prompt,
-          duration: data.duration,
-          loop: data.loop,
-          bpm: data.bpm,
+          model: "V5",
+          soundLoop: data.loop,
+          soundTempo: data.bpm,
+          soundKey: "Any",
+          grabLyrics: false,
           callBackUrl: callbackUrl("sound"),
         });
         await supabase
@@ -350,7 +361,7 @@ export const createPersonaOperation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const project = await projectFor(supabase, data.projectId);
-    if (!project.suno_task_id)
+    if (!project.suno_task_id || !project.suno_audio_id)
       throw new Error("Le morceau doit être terminé avant de créer un persona.");
     const { data: persona, error } = await supabase
       .from("music_personas")
@@ -375,11 +386,25 @@ export const createPersonaOperation = createServerFn({ method: "POST" })
         const { createPersona } = await import("@/lib/suno.server");
         const result = await createPersona({
           taskId: project.suno_task_id!,
-          callBackUrl: callbackUrl("persona"),
+          audioId: project.suno_audio_id!,
+          name: data.name,
+          description: project.prompt ?? undefined,
+          style: project.style ?? undefined,
         });
-        return result.taskId;
+        await supabase
+          .from("music_personas")
+          .update({ provider_persona_id: result.personaId, status: "ready", error_message: null })
+          .eq("id", persona.id)
+          .eq("user_id", userId);
+        return result.personaId;
       },
     });
+    if (!operation.existing) {
+      await updateJob(operation.jobId, {
+        status: "completed",
+        result: { personaId: operation.taskId },
+      });
+    }
     return { ...operation, personaId: persona.id };
   });
 
@@ -568,9 +593,11 @@ export const replaceProjectSection = createServerFn({ method: "POST" })
           taskId: parent.suno_task_id!,
           audioId: parent.suno_audio_id!,
           prompt: data.prompt,
-          sectionStart: data.sectionStart,
-          sectionEnd: data.sectionEnd,
-          model: (parent.model as Model) ?? "V5_5",
+          tags: parent.style ?? parent.genre ?? undefined,
+          title: `${parent.title} · section`,
+          fullLyrics: parent.lyrics ?? undefined,
+          infillStartS: data.sectionStart,
+          infillEndS: data.sectionEnd,
           callBackUrl: callbackUrl("replace-section"),
         });
         await supabase.from("projects").update({ suno_task_id: result.taskId }).eq("id", child.id);

@@ -2,17 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Cookie, Check, Sliders, Info } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/cookies")({
-  head: () => ({
-    meta: [
-      { title: "Politique des Cookies · Loopster" },
-      {
-        name: "description",
-        content: "Information et gestion des cookies et traceurs sur la plateforme Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Politique des cookies | Loopster",
+      description: "Comprends le rôle des cookies sur Loopster et gère tes préférences.",
+      path: "/cookies",
+    }),
   component: CookiesPage,
 });
 
@@ -34,9 +32,8 @@ function CookiesPage() {
             </h2>
             <p>
               Un cookie est un petit fichier texte déposé sur votre ordinateur, tablette ou
-              smartphone lors de votre visite sur Loopster. Il nous permet d'assurer la
-              stabilité du studio audio, de mémoriser vos préférences de lecture et de sécuriser
-              votre session.
+              smartphone lors de votre visite sur Loopster. Il nous permet d'assurer la stabilité du
+              studio audio, de mémoriser vos préférences de lecture et de sécuriser votre session.
             </p>
           </section>
 
@@ -70,7 +67,7 @@ function CookiesPage() {
                 </div>
                 <p className="text-xs text-zinc-400">
                   Mesure anonyme de la fréquentation des pages et des temps d'apprentissage des
-              modèles afin d'améliorer l'ergonomie globale de Loopster.
+                  modèles afin d'améliorer l'ergonomie globale de Loopster.
                 </p>
               </div>
             </div>

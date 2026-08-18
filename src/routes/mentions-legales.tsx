@@ -2,17 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Building2, Server, Globe, Mail } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/mentions-legales")({
-  head: () => ({
-    meta: [
-      { title: "Mentions Légales · Loopster" },
-      {
-        name: "description",
-        content: "Mentions légales, éditeur et hébergeur de la plateforme Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Mentions légales | Loopster",
+      description: "Retrouve l’éditeur, l’hébergeur et les informations légales de Loopster.",
+      path: "/mentions-legales",
+    }),
   component: MentionsLegalesPage,
 });
 
@@ -72,8 +70,8 @@ function MentionsLegalesPage() {
               2. Hébergement du Service
             </h2>
             <p>
-              La plateforme Loopster est hébergée sur des infrastructures cloud hautement
-              sécurisées :
+              La plateforme Loopster est hébergée sur des infrastructures cloud hautement sécurisées
+              :
             </p>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1">
               <p className="font-semibold text-white">Google Cloud Platform (GCP)</p>

@@ -34,25 +34,10 @@ import {
   Sparkles,
   WandSparkles,
 } from "lucide-react";
+import { publicSeo, seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Loopster — Ton studio musical IA" },
-      {
-        name: "description",
-        content: "Transforme une idée en morceau, instru, paroles ou pochette avec Loopster.",
-      },
-      { property: "og:title", content: "Loopster — Ton studio musical IA" },
-      {
-        property: "og:description",
-        content: "Décris ton univers. Loopster t’aide à créer la suite.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://loopster.fun/" },
-    ],
-    links: [{ rel: "canonical", href: "https://loopster.fun/" }],
-  }),
+  head: () => seoHead({ ...publicSeo.home, path: "/" }),
   component: Landing,
 });
 
@@ -124,6 +109,16 @@ const faqs = [
   },
 ];
 
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
+
 function Landing() {
   const {
     data: creations = [],
@@ -147,6 +142,10 @@ function Landing() {
 
   return (
     <MarketingShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       <MarketingNav />
       <main className="pt-[60px] sm:pt-[68px]">
         <div className="border-b border-border-subtle bg-surface-subtle/50 px-4 py-2 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:px-6">

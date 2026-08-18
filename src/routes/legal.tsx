@@ -2,18 +2,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { ShieldCheck, FileText, Lock, Cookie, Scale, ArrowRight } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/legal")({
-  head: () => ({
-    meta: [
-      { title: "Informations Légales · Loopster" },
-      {
-        name: "description",
-        content:
-          "Consultez l'ensemble des documents légaux, conditions d'utilisation, politiques de confidentialité et cookies de Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Informations légales de Loopster",
+      description:
+        "Retrouve les conditions, la confidentialité, les cookies et les mentions légales de Loopster.",
+      path: "/legal",
+    }),
   component: LegalOverviewPage,
 });
 

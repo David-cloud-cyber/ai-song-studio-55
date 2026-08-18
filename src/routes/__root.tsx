@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { AppShell } from "@/components/studio/AppShell";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
+import { OG_IMAGE_URL, SITE_URL } from "@/lib/seo";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -22,16 +23,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Loopster — Ton studio musical IA" },
       {
         name: "description",
-        content: "Transforme une idée en morceau, instru, paroles ou pochette avec Loopster.",
+        content:
+          "Loopster est le studio musical IA pour transformer une idée en morceau, instrumentale, paroles et univers visuel.",
       },
       { name: "author", content: "Loopster" },
+      { name: "application-name", content: "Loopster" },
       { property: "og:title", content: "Loopster — Ton studio musical IA" },
       {
         property: "og:description",
-        content: "Décris ton univers. Loopster t’aide à créer la suite.",
+        content: "Transforme ton idée en musique avec Loopster.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Loopster" },
+      { property: "og:locale", content: "fr_FR" },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: OG_IMAGE_URL },
+      { property: "og:image:alt", content: "Logo Loopster, studio musical IA" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Loopster — Ton studio musical IA" },
+      { name: "twitter:description", content: "Transforme ton idée en musique avec Loopster." },
+      { name: "twitter:image", content: OG_IMAGE_URL },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -56,10 +67,50 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Loopster",
+        url: SITE_URL,
+        logo: `${SITE_URL}/loopster-mark.svg`,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "Loopster",
+        url: SITE_URL,
+        inLanguage: "fr-FR",
+        description: "Studio musical IA pour artistes et créateurs.",
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "Loopster",
+        url: SITE_URL,
+        applicationCategory: "MultimediaApplication",
+        operatingSystem: "Web",
+        inLanguage: "fr-FR",
+        description: "Crée, écoute et fais évoluer tes morceaux avec un studio musical IA.",
+        offers: [
+          { "@type": "Offer", name: "Free", price: "0", priceCurrency: "XAF" },
+          { "@type": "Offer", name: "Pro", price: "5900", priceCurrency: "XAF" },
+          { "@type": "Offer", name: "Premier", price: "15900", priceCurrency: "XAF" },
+        ],
+      },
+    ],
+  };
+
   return (
     <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
       </head>
       <body suppressHydrationWarning>
         {children}

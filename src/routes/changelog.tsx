@@ -2,18 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Sparkles, Music, Zap, Cpu, Shield, ArrowUpRight } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/changelog")({
-  head: () => ({
-    meta: [
-      { title: "Changelog · Loopster" },
-      {
-        name: "description",
-        content:
-          "Historique des mises à jour, nouvelles fonctionnalités et améliorations de Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Nouveautés et mises à jour Loopster",
+      description:
+        "Suis les nouvelles fonctionnalités et améliorations du studio musical Loopster.",
+      path: "/changelog",
+      type: "article",
+    }),
   component: ChangelogPage,
 });
 

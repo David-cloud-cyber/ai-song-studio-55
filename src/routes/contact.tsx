@@ -3,18 +3,15 @@ import { useState } from "react";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Mail, MessageSquare, Send, CheckCircle2, MapPin, Clock } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({
-    meta: [
-      { title: "Contact · Loopster" },
-      {
-        name: "description",
-        content:
-          "Contactez l'équipe Loopster pour toute question, idée ou partenariat.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Contact Loopster | Studio musical IA",
+      description: "Contacte l’équipe Loopster pour une question, une idée ou un partenariat.",
+      path: "/contact",
+    }),
   component: ContactPage,
 });
 
@@ -136,9 +133,9 @@ function ContactPage() {
                     Message envoyé avec succès !
                   </h3>
                   <p className="mt-2 text-sm text-zinc-400 max-w-md mx-auto">
-                Merci d'avoir contacté Loopster. Un membre de notre équipe reviendra vers
-                    vous à l'adresse <strong className="text-white">{form.email}</strong> dans les
-                    plus brefs délais.
+                    Merci d'avoir contacté Loopster. Un membre de notre équipe reviendra vers vous à
+                    l'adresse <strong className="text-white">{form.email}</strong> dans les plus
+                    brefs délais.
                   </p>
                   <button
                     onClick={() => {

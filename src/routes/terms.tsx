@@ -2,18 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { FileText, ShieldCheck, Scale, AlertCircle } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: "Conditions Générales d'Utilisation (CGU) · Loopster" },
-      {
-        name: "description",
-        content:
-          "Conditions Générales d'Utilisation du service de génération musicale Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Conditions générales d’utilisation | Loopster",
+      description: "Consulte les conditions d’utilisation du studio musical Loopster.",
+      path: "/terms",
+    }),
   component: TermsPage,
 });
 
@@ -35,8 +32,8 @@ function TermsPage() {
             </h2>
             <p>
               Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») ont pour objet de
-              définir les modalités d'accès et d'utilisation de la plateforme Loopster
-              (ci-après « le Service »), éditée par la société Loopster.
+              définir les modalités d'accès et d'utilisation de la plateforme Loopster (ci-après «
+              le Service »), éditée par la société Loopster.
             </p>
             <p>
               L'accès au Service implique l'acceptation sans réserve des présentes CGU par
@@ -110,9 +107,9 @@ function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">5. Limitation de Responsabilité</h2>
             <p>
-              Loopster met en œuvre tous les moyens raisonnables pour garantir une
-              disponibilité continue du Service. Toutefois, nous ne garantissons pas une continuité
-              ininterrompue en cas de maintenance ou de panne du réseau tiers.
+              Loopster met en œuvre tous les moyens raisonnables pour garantir une disponibilité
+              continue du Service. Toutefois, nous ne garantissons pas une continuité ininterrompue
+              en cas de maintenance ou de panne du réseau tiers.
             </p>
           </section>
 

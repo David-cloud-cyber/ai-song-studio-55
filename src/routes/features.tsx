@@ -10,14 +10,10 @@ import {
 } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { publicSeo, seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/features")({
-  head: () => ({
-    meta: [
-      { title: "Fonctionnalités — Loopster" },
-      { name: "description", content: "Découvre les outils de création musicale de Loopster." },
-    ],
-  }),
+  head: () => seoHead({ ...publicSeo.features, path: "/features" }),
   component: FeaturesPage,
 });
 

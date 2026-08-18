@@ -2,17 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { PricingSection } from "@/components/marketing/PricingSection";
+import { publicSeo, seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/pricing")({
-  head: () => ({
-    meta: [
-      { title: "Tarifs — Loopster" },
-      {
-        name: "description",
-        content: "Choisis la formule Loopster adaptée à ton rythme de création.",
-      },
-    ],
-  }),
+  head: () => seoHead({ ...publicSeo.pricing, path: "/pricing" }),
   component: PricingPage,
 });
 

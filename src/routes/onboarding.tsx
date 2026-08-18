@@ -4,14 +4,16 @@ import { ArrowRight, Check, Music2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { markOnboardingDone } from "@/components/studio/OnboardingGate";
 import { cn } from "@/lib/utils";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/onboarding")({
-  head: () => ({
-    meta: [
-      { title: "Bienvenue dans Loopster" },
-      { name: "description", content: "Prépare ton espace de création Loopster." },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Bienvenue dans Loopster",
+      description: "Prépare ton espace de création Loopster.",
+      path: "/onboarding",
+      noIndex: true,
+    }),
   component: OnboardingPage,
 });
 

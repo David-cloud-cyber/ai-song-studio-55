@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
 import { getSafeAuthDestination } from "@/lib/auth-redirect";
+import { seoHead } from "@/lib/seo";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -12,12 +13,13 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/reset-password")({
   validateSearch: searchSchema,
-  head: () => ({
-    meta: [
-      { title: "Nouveau mot de passe · Loopster" },
-      { name: "description", content: "Choisissez un nouveau mot de passe pour votre compte." },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Nouveau mot de passe | Loopster",
+      description: "Mets à jour ton mot de passe Loopster en toute sécurité.",
+      path: "/reset-password",
+      noIndex: true,
+    }),
   component: ResetPasswordPage,
 });
 
@@ -86,7 +88,9 @@ function ResetPasswordPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       toast.error(
-        message.includes("match") ? "Les mots de passe ne correspondent pas" : "Mise à jour impossible",
+        message.includes("match")
+          ? "Les mots de passe ne correspondent pas"
+          : "Mise à jour impossible",
         {
           description: message.includes("match")
             ? "Vérifie les deux champs puis réessaie."

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { buildAuthReturnUrl, getSafeAuthDestination } from "@/lib/auth-redirect";
 import { cycleLabel, formatXaf, getPriceXaf, getPricingPlan } from "@/lib/pricing";
+import { seoHead } from "@/lib/seo";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -17,12 +18,13 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
-  head: () => ({
-    meta: [
-      { title: "Connexion — Loopster" },
-      { name: "description", content: "Rejoins ton studio Loopster." },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Connexion à Loopster",
+      description: "Connecte-toi à ton studio musical Loopster ou crée ton espace gratuitement.",
+      path: "/auth",
+      noIndex: true,
+    }),
   component: AuthPage,
 });
 

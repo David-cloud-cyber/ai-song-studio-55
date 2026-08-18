@@ -6,17 +6,10 @@ import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Search, X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { publicSeo, seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/templates")({
-  head: () => ({
-    meta: [
-      { title: "Templates · Loopster" },
-      {
-        name: "description",
-        content: "Modèles créatifs filtrables par genre, mood, durée et voix.",
-      },
-    ],
-  }),
+  head: () => seoHead({ ...publicSeo.templates, path: "/templates" }),
   component: TemplatesPage,
 });
 

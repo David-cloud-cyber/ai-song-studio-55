@@ -11,17 +11,10 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingShell } from "@/components/marketing/MarketingPrimitives";
 import { RefreshCw, Sparkles } from "lucide-react";
+import { publicSeo, seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/feed")({
-  head: () => ({
-    meta: [
-      { title: "Feed · Loopster" },
-      {
-        name: "description",
-        content: "Écoutez les créations publiées par la communauté Loopster.",
-      },
-    ],
-  }),
+  head: () => seoHead({ ...publicSeo.gallery, path: "/feed" }),
   component: FeedPage,
 });
 

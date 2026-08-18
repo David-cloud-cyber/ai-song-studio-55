@@ -2,18 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { SectionHeader } from "@/components/studio/SectionHeader";
 import { Lock, Database, Eye, UserCheck, Shield } from "lucide-react";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: "Politique de Confidentialité · Loopster" },
-      {
-        name: "description",
-        content:
-          "Engagement de protection des données personnelles et conformité RGPD de Loopster.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Politique de confidentialité | Loopster",
+      description: "Découvre comment Loopster protège et utilise tes données personnelles.",
+      path: "/privacy",
+    }),
   component: PrivacyPage,
 });
 

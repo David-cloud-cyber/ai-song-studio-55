@@ -1,14 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const vibes = ["Phonk", "Synthwave", "Lo-fi", "R&B", "Cinématique"];
-const suggestions = [
-  "Phonk nocturne, cloches et 140 BPM",
-  "Ballade R&B mélancolique, voix aérienne",
-];
-
 export function HeroPromptInput() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
@@ -92,26 +87,6 @@ export function HeroPromptInput() {
             </button>
           ))}
         </div>
-      </div>
-
-      <div
-        className={cn(
-          "mt-3 grid gap-2 transition-opacity sm:grid-cols-3",
-          focused ? "opacity-100" : "opacity-75",
-        )}
-      >
-        {suggestions.map((suggestion) => (
-          <button
-            key={suggestion}
-            type="button"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setPrompt(suggestion)}
-            className="flex min-w-0 items-start gap-2 rounded-xl border border-border-subtle bg-surface-subtle px-3 py-2 text-left text-xs leading-5 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-          >
-            <Sparkles className="mt-0.5 size-3 shrink-0 text-primary" />
-            <span className="line-clamp-2">{suggestion}</span>
-          </button>
-        ))}
       </div>
     </div>
   );

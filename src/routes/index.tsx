@@ -204,17 +204,6 @@ function Hero({
         <div className="relative z-20 mt-8">
           <HeroPromptInput />
         </div>
-        <div className="relative z-10 mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-success" /> 80 crédits chaque jour
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-success" /> Écoute gratuite
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-success" /> Aucune carte bancaire
-          </span>
-        </div>
         <HeroMusicStage creations={creations} loading={loading} error={error} />
       </div>
     </section>

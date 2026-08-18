@@ -127,7 +127,7 @@ export function MarketingNav() {
 
       <div
         className={cn(
-          "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 lg:hidden",
+          "absolute inset-x-0 top-full grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 lg:hidden",
           open
             ? "grid-rows-[1fr] opacity-100"
             : "invisible pointer-events-none grid-rows-[0fr] opacity-0",

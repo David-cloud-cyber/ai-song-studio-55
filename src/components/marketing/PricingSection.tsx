@@ -132,22 +132,26 @@ function PricingCard({
   return (
     <article
       className={cn(
-        "relative flex flex-col rounded-3xl border p-6 sm:p-7",
+        "relative flex flex-col rounded-3xl border p-5 sm:p-6",
         featured ? "border-primary/60 bg-primary/[0.06]" : "border-border bg-surface",
       )}
     >
       {plan.badge && (
-        <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-primary">
+        <span className="absolute right-4 top-4 inline-flex max-w-[9.5rem] items-center gap-1 rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary/90">
           {featured && <Heart className="size-3 fill-current" />}
           {plan.badge}
         </span>
       )}
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-primary">
-        Loopster {plan.name}
-      </p>
-      <h3 className="mt-3 text-2xl font-semibold tracking-tight">{plan.audience}</h3>
-      <div className="mt-6 flex flex-wrap items-baseline gap-2">
-        <span className="text-4xl font-semibold tracking-tight sm:text-5xl">
+      <div className="min-h-[5.25rem] pr-24 sm:min-h-[5.5rem]">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/80">
+          Loopster · {plan.name}
+        </p>
+        <h3 className="mt-2 max-w-[18rem] text-xl font-medium leading-7 tracking-tight text-foreground/95 sm:text-[1.35rem]">
+          {plan.audience}
+        </h3>
+      </div>
+      <div className="mt-5 flex flex-wrap items-baseline gap-2">
+        <span className="text-3xl font-semibold tracking-tight sm:text-4xl">
           {price === 0 ? "Gratuit" : formatXaf(price)}
         </span>
         {price > 0 && <span className="text-sm text-muted-foreground">/ {cycleLabel(cycle)}</span>}

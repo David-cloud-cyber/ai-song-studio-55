@@ -46,8 +46,11 @@ function createSupabaseClient() {
     },
     auth: {
       storage: typeof window !== "undefined" ? localStorage : undefined,
+      storageKey: "loopster-auth-v2",
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
     },
   });
 }

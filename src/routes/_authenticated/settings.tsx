@@ -48,32 +48,27 @@ function SettingsPage() {
     setPreferencesReady(false);
     setNameDraft(profile.display_name ?? "");
     setHandleDraft(profile.handle ?? "");
+    const preferences = profile.preferences as Partial<{
+      notif: boolean;
+      collab: boolean;
+      autoplay: boolean;
+    }>;
     try {
-      const stored = window.localStorage.getItem(`loopster-preferences:${profile.id}`);
-      if (!stored) {
-        setPreferencesReady(true);
-        return;
-      }
-      const preferences = JSON.parse(stored) as Partial<{
-        notif: boolean;
-        collab: boolean;
-        autoplay: boolean;
-      }>;
       if (typeof preferences.notif === "boolean") setNotif(preferences.notif);
       if (typeof preferences.collab === "boolean") setCollab(preferences.collab);
       if (typeof preferences.autoplay === "boolean") setAutoplay(preferences.autoplay);
     } catch {
-      // Les préférences locales restent facultatives si le stockage est indisponible.
+      // Les préférences restent optionnelles si le profil est ancien.
     }
     setPreferencesReady(true);
   }, [profile]);
 
   useEffect(() => {
     if (!profile || !preferencesReady) return;
-    window.localStorage.setItem(
-      `loopster-preferences:${profile.id}`,
-      JSON.stringify({ notif, collab, autoplay }),
-    );
+    void supabase
+      .from("profiles")
+      .update({ preferences: { ...(profile.preferences ?? {}), notif, collab, autoplay } })
+      .then(() => undefined);
   }, [autoplay, collab, notif, preferencesReady, profile]);
 
   const signOut = async () => {

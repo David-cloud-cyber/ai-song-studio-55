@@ -42,7 +42,8 @@ export const LOOPSTER_COSTS = {
   advancedStems: 134,
   fullStems: 334,
   video: 14,
-  cover: 0,
+  // The provider cover endpoint is free; this small Loopster cost limits abuse.
+  cover: 4,
   replaceSection: 34,
   mashup: 80,
   sample: 80,

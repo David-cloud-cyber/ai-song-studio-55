@@ -608,21 +608,29 @@ function EditorPage() {
                     jobIsRunning("cover")
                       ? "Préparation en cours…"
                       : coverSource
-                        ? "Pochette disponible"
-                        : "Gratuit · 2 styles visuels"
+                        ? `Pochette disponible · nouvelle : ${COSTS.cover} crédits`
+                        : `${COSTS.cover} crédits · pochette Loopster`
                   }
                   busy={jobIsRunning("cover")}
-                  disabled={!project.suno_task_id || Boolean(coverSource) || jobIsRunning("cover")}
-                  onClick={() =>
-                    run(
+                  disabled={!project.suno_task_id || jobIsRunning("cover")}
+                  onClick={() => {
+                    if (
+                      coverSource &&
+                      !window.confirm(
+                        "Créer une nouvelle pochette pour 4 crédits ? L’actuelle sera conservée dans l’historique.",
+                      )
+                    ) {
+                      return;
+                    }
+                    void run(
                       "cover",
                       () =>
                         runCover({
                           data: { projectId: project.id, requestId: crypto.randomUUID() },
                         }),
                       "La pochette est en préparation",
-                    )
-                  }
+                    );
+                  }}
                 />
                 <ActionCard
                   icon={<Film className="size-4" />}

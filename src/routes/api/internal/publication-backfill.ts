@@ -39,13 +39,14 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
         const limit = Math.min(Math.max(Math.trunc(body.limit ?? 100), 1), 250);
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { publishProjectAssets } = await import("@/lib/publication.server");
+        const { ensureProjectCover } = await import("@/lib/default-cover.server");
         const { data: projects, error } = await supabaseAdmin
           .from("projects")
-          .select("id,created_at,status,archived_at,is_public,publication_status")
+          .select(
+            "id,user_id,title,genre,created_at,status,archived_at,is_public,publication_status,image_path,image_url,cover_url",
+          )
           .lt("created_at", new Date(cutoffTime).toISOString())
-          .eq("status", "ready")
           .is("archived_at", null)
-          .neq("publication_status", "published")
           .order("created_at", { ascending: true })
           .limit(limit);
         if (error) throw error;
@@ -57,10 +58,32 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
           alreadyPublic: 0,
           skipped: 0,
           failed: 0,
+          coversCreated: 0,
+          coversExisting: 0,
+          coverFailures: 0,
           details: [] as Array<{ projectId: string; status: string; reason?: string }>,
         };
 
         for (const project of projects ?? []) {
+          let coverReady = true;
+          try {
+            const cover = await ensureProjectCover(supabaseAdmin, project);
+            if (cover.source === "existing") report.coversExisting += 1;
+            else report.coversCreated += 1;
+          } catch (error) {
+            coverReady = false;
+            report.coverFailures += 1;
+            report.details.push({
+              projectId: project.id,
+              status: "cover_failed",
+              reason: error instanceof Error ? error.message : "Pochette indisponible",
+            });
+          }
+          if (!coverReady) {
+            report.skipped += 1;
+            continue;
+          }
+          if (project.status !== "ready" || project.archived_at) continue;
           // Les créations de la phase de test sont publiées indépendamment de la
           // formule actuelle. La règle ne concerne que les nouvelles créations.
           const { error: policyError } = await supabaseAdmin

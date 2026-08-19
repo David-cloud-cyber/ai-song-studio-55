@@ -155,15 +155,22 @@ function CreatePage() {
 
   useEffect(() => {
     if (search.sourceProjectId) return;
+    let preferences: {
+      prompt?: unknown;
+      style?: unknown;
+      mood?: unknown;
+      voice?: unknown;
+    } = {
+      prompt: profile?.preferences?.first_prompt,
+      style: profile?.preferred_style,
+      mood: profile?.preferred_mood,
+      voice: profile?.preferred_voice,
+    };
     try {
-      const raw = window.localStorage.getItem("loopster.onboarding.preferences");
-      if (!raw) return;
-      const preferences = JSON.parse(raw) as {
-        prompt?: unknown;
-        style?: unknown;
-        mood?: unknown;
-        voice?: unknown;
-      };
+      if (!profile) {
+        const raw = window.localStorage.getItem("loopster.onboarding.preferences");
+        if (raw) preferences = JSON.parse(raw);
+      }
       if (typeof preferences.prompt === "string" && preferences.prompt.trim()) {
         setPrompt(preferences.prompt.trim());
       }
@@ -192,11 +199,11 @@ function CreatePage() {
       if (selectedGenre) setGenre(selectedGenre);
       if (selectedMood) setMood(selectedMood);
       if (selectedVoice) setVoice(selectedVoice);
-      window.localStorage.removeItem("loopster.onboarding.preferences");
+      if (!profile) window.localStorage.removeItem("loopster.onboarding.preferences");
     } catch {
       // Une préférence locale invalide ne doit jamais bloquer la création.
     }
-  }, [search.sourceProjectId]);
+  }, [profile, search.sourceProjectId]);
 
   useEffect(() => {
     if (!sourceProject) return;

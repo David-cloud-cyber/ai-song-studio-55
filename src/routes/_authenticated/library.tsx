@@ -20,6 +20,7 @@ type DbProject = {
   duration_seconds: number | null;
   status: string;
   cover_gradient: string | null;
+  image_path: string | null;
   tags: string[];
   created_at: string;
   progress: number;
@@ -84,7 +85,7 @@ function LibraryPage() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id,title,genre,mood,duration_seconds,status,cover_gradient,tags,created_at,progress,audio_url,audio_path,archived_at",
+          "id,title,genre,mood,duration_seconds,status,cover_gradient,image_path,tags,created_at,progress,audio_url,audio_path,archived_at",
         )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
@@ -188,6 +189,7 @@ function LibraryPage() {
                 >
                   <CoverArt
                     gradient={p.cover_gradient ?? fallbackGradient}
+                    imageUrl={p.image_path}
                     className="aspect-square rounded-2xl"
                   >
                     <div className="absolute left-2 top-2">

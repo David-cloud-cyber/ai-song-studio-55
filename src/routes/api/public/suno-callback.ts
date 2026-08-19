@@ -113,14 +113,24 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             .update({ status: "failed", error_message: body.msg ?? "Échec Suno" })
             .eq("id", job.id);
           if (job.project_id) {
-            await supabaseAdmin
-              .from("projects")
-              .update({
-                status: "draft",
-                progress: 0,
-                error_message: body.msg ?? "Échec de la création",
-              })
-              .eq("id", job.project_id);
+            if (job.kind === "cover") {
+              await supabaseAdmin
+                .from("projects")
+                .update({
+                  cover_generation_status: "failed",
+                  cover_error: body.msg ?? "Échec de la pochette",
+                })
+                .eq("id", job.project_id);
+            } else {
+              await supabaseAdmin
+                .from("projects")
+                .update({
+                  status: "draft",
+                  progress: 0,
+                  error_message: body.msg ?? "Échec de la création",
+                })
+                .eq("id", job.project_id);
+            }
           }
           return new Response("ok");
         }
@@ -519,8 +529,20 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                   error_message: "La pochette n'a pas pu être conservée.",
                 })
                 .eq("id", job.id);
+              await supabaseAdmin
+                .from("projects")
+                .update({
+                  cover_generation_status: "failed",
+                  cover_error: "La pochette n’a pas pu être conservée.",
+                })
+                .eq("id", job.project_id);
               return new Response("Storage unavailable", { status: 503 });
             }
+            const { data: previousProject } = await supabaseAdmin
+              .from("projects")
+              .select("is_public,publication_policy")
+              .eq("id", job.project_id)
+              .maybeSingle();
             await supabaseAdmin
               .from("projects")
               .update({
@@ -528,18 +550,44 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                 image_url: null,
                 cover_url: null,
                 public_image_url: null,
+                cover_source: "ai",
+                cover_generation_status: "ready",
+                cover_error: null,
               })
               .eq("id", job.project_id);
+            if (
+              previousProject?.is_public ||
+              previousProject?.publication_policy === "automatic_free"
+            ) {
+              try {
+                const { publishProjectAssets } = await import("@/lib/publication.server");
+                await publishProjectAssets(supabaseAdmin, job.project_id);
+              } catch {
+                // The project remains private until the normal publication retry.
+              }
+            }
             await supabaseAdmin
               .from("generation_jobs")
               .update({ status: "completed", result: { coverPath: durableCoverPath } })
               .eq("id", job.id);
-          } else if (body.code !== undefined && body.code !== 200) {
+          } else {
             await refundFailedJob();
             await supabaseAdmin
               .from("generation_jobs")
-              .update({ status: "failed", error_message: body.msg ?? "Échec de la pochette" })
+              .update({
+                status: "failed",
+                error_message: body.msg ?? "La pochette est introuvable",
+              })
               .eq("id", job.id);
+            if (job.project_id) {
+              await supabaseAdmin
+                .from("projects")
+                .update({
+                  cover_generation_status: "failed",
+                  cover_error: body.msg ?? "La pochette est introuvable",
+                })
+                .eq("id", job.project_id);
+            }
           }
           return new Response("ok");
         }
@@ -573,7 +621,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             `${job.user_id}/${job.project_id}/master.mp3`,
             "audio/mpeg",
           );
-          const durableImagePath = job?.project_id
+          const providerImagePath = job?.project_id
             ? await persistGeneratedAsset(
                 supabaseAdmin,
                 imageUrl,
@@ -600,6 +648,19 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .eq("id", job.id);
             return new Response("Storage unavailable", { status: 503 });
           }
+          let durableImagePath = providerImagePath;
+          let coverSource = providerImagePath ? "provider" : "default";
+          if (!durableImagePath) {
+            const { ensureProjectCover } = await import("@/lib/default-cover.server");
+            const fallback = await ensureProjectCover(supabaseAdmin, {
+              id: job.project_id,
+              user_id: job.user_id,
+              title: clip?.title ?? "Nouveau morceau",
+              genre: null,
+            });
+            durableImagePath = fallback.path;
+            coverSource = fallback.source === "provider" ? "provider" : "default";
+          }
           await supabaseAdmin
             .from("projects")
             .update({
@@ -610,6 +671,9 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               image_path: durableImagePath,
               image_url: null,
               cover_url: null,
+              cover_source: coverSource,
+              cover_generation_status: "ready",
+              cover_error: null,
               public_audio_url: null,
               public_image_url: null,
               is_public: false,

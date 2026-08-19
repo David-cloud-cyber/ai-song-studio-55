@@ -153,6 +153,8 @@ export type Database = {
           preferred_voice: string | null;
           free_publication_notice_seen_at: string | null;
           free_publication_notice_version: string | null;
+          onboarding_completed_at: string | null;
+          preferences: Json;
           plan: string;
           subscription_status: string;
           subscription_expires_at: string | null;
@@ -176,6 +178,8 @@ export type Database = {
           preferred_voice?: string | null;
           free_publication_notice_seen_at?: string | null;
           free_publication_notice_version?: string | null;
+          onboarding_completed_at?: string | null;
+          preferences?: Json;
           plan?: string;
           subscription_status?: string;
           subscription_expires_at?: string | null;
@@ -199,6 +203,8 @@ export type Database = {
           preferred_voice?: string | null;
           free_publication_notice_seen_at?: string | null;
           free_publication_notice_version?: string | null;
+          onboarding_completed_at?: string | null;
+          preferences?: Json;
           plan?: string;
           subscription_status?: string;
           subscription_expires_at?: string | null;
@@ -301,6 +307,9 @@ export type Database = {
           active_version_id: string | null;
           archived_at: string | null;
           cover_gradient: string | null;
+          cover_source: string;
+          cover_generation_status: string;
+          cover_error: string | null;
           cover_url: string | null;
           created_at: string;
           duration_seconds: number | null;
@@ -352,6 +361,9 @@ export type Database = {
           active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
+          cover_source?: string;
+          cover_generation_status?: string;
+          cover_error?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;
@@ -403,6 +415,9 @@ export type Database = {
           active_version_id?: string | null;
           archived_at?: string | null;
           cover_gradient?: string | null;
+          cover_source?: string;
+          cover_generation_status?: string;
+          cover_error?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;

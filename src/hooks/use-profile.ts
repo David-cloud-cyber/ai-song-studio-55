@@ -16,6 +16,8 @@ export type Profile = {
   preferred_voice: string | null;
   free_publication_notice_seen_at: string | null;
   free_publication_notice_version: string | null;
+  onboarding_completed_at: string | null;
+  preferences: Record<string, unknown>;
   credits: number;
   plan: string;
   subscription_status: string;

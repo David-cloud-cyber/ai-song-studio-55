@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Check, Music2, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { markOnboardingDone } from "@/components/studio/OnboardingGate";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/utils";
 import { seoHead } from "@/lib/seo";
 
@@ -23,24 +26,40 @@ const voices = ["Voix féminine", "Voix masculine", "Chœur", "Instrumental"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useSession();
   const [step, setStep] = useState(0);
   const [style, setStyle] = useState<string | null>(null);
   const [mood, setMood] = useState<string | null>(null);
   const [voice, setVoice] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const canContinue =
     step === 0 ? !!style : step === 1 ? !!mood && !!voice : prompt.trim().length > 4;
-  const finish = () => {
-    try {
-      window.localStorage.setItem(
-        "loopster.onboarding.preferences",
-        JSON.stringify({ style, mood, voice, prompt: prompt.trim() }),
-      );
-    } catch {
-      /* La création reste disponible. */
+  const finish = async () => {
+    if (saving) return;
+    setSaving(true);
+    if (user) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          preferred_style: style,
+          preferred_mood: mood,
+          preferred_voice: voice,
+          onboarding_completed_at: new Date().toISOString(),
+          preferences: { first_prompt: prompt.trim() },
+        })
+        .eq("id", user.id);
+      if (error) {
+        setSaving(false);
+        toast.error("Ton espace n’a pas pu être enregistré", {
+          description: "Vérifie ta connexion puis réessaie.",
+        });
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
     }
-    markOnboardingDone();
     navigate({ to: "/create" });
   };
 
@@ -52,7 +71,8 @@ function OnboardingPage() {
         </div>
         <button
           type="button"
-          onClick={finish}
+          onClick={() => void finish()}
+          disabled={saving}
           className="text-xs text-muted-foreground hover:text-foreground"
         >
           Passer pour l’instant
@@ -144,8 +164,8 @@ function OnboardingPage() {
         )}
         <button
           type="button"
-          onClick={() => (step === 2 ? finish() : setStep((current) => current + 1))}
-          disabled={!canContinue}
+          onClick={() => (step === 2 ? void finish() : setStep((current) => current + 1))}
+          disabled={!canContinue || saving}
           className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           {step === 2 ? "Entrer dans le studio" : "Continuer"}

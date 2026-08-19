@@ -1,13 +1,16 @@
 import { cn } from "@/lib/utils";
+import { useMediaUrl } from "@/hooks/use-media-url";
 
 interface Props {
   gradient: string;
   title?: string;
+  imageUrl?: string | null;
   className?: string;
   children?: React.ReactNode;
 }
 
-export function CoverArt({ gradient, title, className, children }: Props) {
+export function CoverArt({ gradient, title, imageUrl, className, children }: Props) {
+  const resolvedImageUrl = useMediaUrl(imageUrl ?? null);
   return (
     <div
       className={cn(
@@ -16,6 +19,14 @@ export function CoverArt({ gradient, title, className, children }: Props) {
         className,
       )}
     >
+      {resolvedImageUrl && (
+        <img
+          src={resolvedImageUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_55%)] mix-blend-overlay" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_90%,rgba(0,0,0,0.6),transparent_55%)]" />
       <div className="absolute inset-0 bg-[repeating-linear-gradient(115deg,rgba(255,255,255,0.05)_0_1px,transparent_1px_6px)]" />

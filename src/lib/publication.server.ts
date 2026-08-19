@@ -6,6 +6,10 @@ type AdminClient = SupabaseClient<Database>;
 
 const MAX_PUBLICATION_ATTEMPTS = 3;
 
+function coverContentType(value: string | null | undefined) {
+  return value?.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/jpeg";
+}
+
 const projectFields =
   "id,user_id,status,archived_at,audio_url,audio_path,image_url,image_path,cover_url,wav_url,wav_path,video_url,video_path,is_public,published_at,public_audio_url,public_image_url,public_wav_url,public_video_url,publication_status,publication_policy,publication_error,publication_attempts";
 
@@ -83,7 +87,12 @@ export async function publishProjectAssets(
   if (!data) throw new Error("Projet introuvable.");
 
   const project = asProject(data);
-  if (project.is_public && project.public_audio_url && project.publication_status === "published") {
+  if (
+    project.is_public &&
+    project.public_audio_url &&
+    project.public_image_url &&
+    project.publication_status === "published"
+  ) {
     return { status: "already_published", projectId: project.id };
   }
   if (project.archived_at) {
@@ -125,11 +134,21 @@ export async function publishProjectAssets(
       publishGeneratedAsset(
         supabaseAdmin,
         project.image_path ?? project.image_url ?? project.cover_url,
-        "image/jpeg",
+        coverContentType(project.image_path ?? project.image_url ?? project.cover_url),
       ),
       publishGeneratedAsset(supabaseAdmin, project.wav_path ?? project.wav_url, "audio/wav"),
       publishGeneratedAsset(supabaseAdmin, project.video_path ?? project.video_url, "video/mp4"),
     ]);
+
+    if (!imageUrl) {
+      await removePublishedAsset(supabaseAdmin, audioUrl);
+      return recordFailure(
+        supabaseAdmin,
+        project,
+        "La pochette ne peut pas être publiée.",
+        attempts,
+      );
+    }
 
     const { error: updateError } = await supabaseAdmin
       .from("projects")
@@ -137,7 +156,7 @@ export async function publishProjectAssets(
         is_public: true,
         published_at: project.published_at ?? new Date().toISOString(),
         public_audio_url: audioUrl,
-        public_image_url: imageUrl ?? project.public_image_url,
+        public_image_url: imageUrl,
         public_wav_url: wavUrl ?? project.public_wav_url,
         public_video_url: videoUrl ?? project.public_video_url,
         publication_status: "published",

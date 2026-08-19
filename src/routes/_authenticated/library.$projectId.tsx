@@ -68,6 +68,9 @@ type Project = {
   duration_seconds: number | null;
   status: "ready" | "rendering" | "draft";
   cover_gradient: string | null;
+  cover_source: "default" | "provider" | "ai";
+  cover_generation_status: "ready" | "pending" | "failed";
+  cover_error: string | null;
   cover_url: string | null;
   image_url: string | null;
   image_path: string | null;
@@ -397,12 +400,19 @@ function ProjectDetail() {
       "Création vidéo lancée",
     );
 
-  const doCover = () =>
-    runDerived(
+  const doCover = () => {
+    if (
+      coverSource &&
+      !window.confirm("Créer une nouvelle pochette pour 4 crédits ? L’actuelle sera conservée dans l’historique.")
+    ) {
+      return;
+    }
+    void runDerived(
       "cover",
       () => runCover({ data: { projectId: project.id, requestId: crypto.randomUUID() } }),
       "La nouvelle pochette est en préparation",
     );
+  };
 
   const toggleFavorite = async () => {
     const { error } = await supabase
@@ -767,7 +777,12 @@ function ProjectDetail() {
             </button>
             <button
               onClick={doCover}
-              disabled={isArchived || !project.suno_task_id || Boolean(cover) || busy !== null}
+              disabled={
+                isArchived ||
+                !project.suno_task_id ||
+                project.cover_generation_status === "pending" ||
+                busy !== null
+              }
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:opacity-40"
             >
               {busy === "cover" ? (
@@ -775,7 +790,7 @@ function ProjectDetail() {
               ) : (
                 <Wand2 className="size-3.5" />
               )}
-              Pochette
+              Nouvelle pochette · {COSTS.cover} CR
             </button>
           </div>
 

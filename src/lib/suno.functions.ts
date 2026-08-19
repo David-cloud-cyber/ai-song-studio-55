@@ -295,6 +295,22 @@ export const generateTrack = createServerFn({ method: "POST" })
       .single();
     if (insertError) throw insertError;
 
+    // The visual fallback is local and free; it is replaced by the provider
+    // image when the generation callback returns one.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { ensureProjectCover } = await import("@/lib/default-cover.server");
+      await ensureProjectCover(supabaseAdmin, {
+        id: project.id,
+        user_id: userId,
+        title: data.title,
+        genre: data.genre,
+        cover_gradient: data.coverGradient,
+      });
+    } catch {
+      // A temporary storage issue must not prevent the music request.
+    }
+
     const providerKind = data.instrumental ? "instrumental" : "song";
     const providerCredits = PROVIDER_COST_BY_JOB_KIND[providerKind] ?? 0;
     const claim = await claimGenerationJob(
@@ -1181,14 +1197,18 @@ export const createProjectCover = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: project, error } = await supabase
       .from("projects")
-      .select("id,title,suno_task_id,image_url,cover_url")
+      .select(
+        "id,title,suno_task_id,image_path,image_url,cover_url,cover_source,cover_generation_status",
+      )
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
     if (!project?.suno_task_id) throw new Error("Le morceau doit être terminé avant sa pochette.");
-    if (project.image_url || project.cover_url) {
-      throw new Error("Une pochette existe déjà pour ce morceau.");
+    if (project.cover_generation_status === "pending") {
+      throw new Error("Une pochette est déjà en préparation.");
     }
+
+    await assertCredits(supabase, userId, COSTS.cover);
 
     const claim = await claimGenerationJob(
       supabase,
@@ -1201,12 +1221,32 @@ export const createProjectCover = createServerFn({ method: "POST" })
     );
     if (claim.existing) return { taskId: claim.job.suno_task_id ?? "" };
 
+    let reservedCredits = 0;
+    let taskId: string | null = null;
     try {
+      const accounting = await spend(
+        supabase,
+        COSTS.cover,
+        `Pochette IA · ${project.title}`,
+        project.id,
+        "cover",
+      );
+      reservedCredits = COSTS.cover;
+      await updateGenerationJob(claim.job.id, {
+        credits_spent: COSTS.cover,
+        provider_credits_spent: accounting.providerCredits,
+        provider_cost_usd: accounting.providerCostUsd,
+      });
+      await supabase
+        .from("projects")
+        .update({ cover_generation_status: "pending", cover_error: null })
+        .eq("id", project.id);
       const { createMusicCover } = await import("./suno.server");
       const result = await createMusicCover({
         taskId: project.suno_task_id,
         callBackUrl: callbackUrl("cover"),
       });
+      taskId = result.taskId;
       await updateGenerationJob(claim.job.id, {
         status: "processing",
         suno_task_id: result.taskId,
@@ -1214,7 +1254,21 @@ export const createProjectCover = createServerFn({ method: "POST" })
       return { taskId: result.taskId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Pochette impossible";
+      if (reservedCredits > 0 && !taskId) {
+        await refundGeneration(
+          supabase,
+          userId,
+          reservedCredits,
+          project.id,
+          claim.job.id,
+          `Remboursement · ${message}`,
+        );
+      }
       await updateGenerationJob(claim.job.id, { status: "failed", error_message: message });
+      await supabase
+        .from("projects")
+        .update({ cover_generation_status: "failed", cover_error: message })
+        .eq("id", project.id);
       throw err;
     }
   });
@@ -1228,7 +1282,7 @@ export const syncProject = createServerFn({ method: "POST" })
 
     const { data: project, error } = await supabase
       .from("projects")
-      .select("id,user_id,status,suno_task_id,stems,duration_seconds")
+      .select("id,user_id,title,genre,status,suno_task_id,stems,duration_seconds")
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
@@ -1262,7 +1316,7 @@ export const syncProject = createServerFn({ method: "POST" })
           `${project.user_id}/${project.id}/master.mp3`,
           "audio/mpeg",
         );
-        const durableImagePath = await persistGeneratedAsset(
+        const providerImagePath = await persistGeneratedAsset(
           supabaseAdmin,
           clip.imageUrl,
           `${project.user_id}/${project.id}/cover.jpg`,
@@ -1278,6 +1332,19 @@ export const syncProject = createServerFn({ method: "POST" })
           changed = true;
           return { changed, status: "draft" };
         }
+        let durableImagePath = providerImagePath;
+        let coverSource = providerImagePath ? "provider" : "default";
+        if (!durableImagePath) {
+          const { ensureProjectCover } = await import("@/lib/default-cover.server");
+          const fallback = await ensureProjectCover(supabaseAdmin, {
+            id: project.id,
+            user_id: project.user_id,
+            title: project.title,
+            genre: project.genre,
+          });
+          durableImagePath = fallback.path;
+          coverSource = fallback.source === "provider" ? "provider" : "default";
+        }
         await supabase
           .from("projects")
           .update({
@@ -1288,6 +1355,9 @@ export const syncProject = createServerFn({ method: "POST" })
             image_path: durableImagePath,
             image_url: null,
             cover_url: null,
+            cover_source: coverSource,
+            cover_generation_status: "ready",
+            cover_error: null,
             public_audio_url: null,
             public_image_url: null,
             is_public: false,

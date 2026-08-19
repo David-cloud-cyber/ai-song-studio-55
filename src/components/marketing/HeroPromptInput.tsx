@@ -62,11 +62,11 @@ export function HeroPromptInput() {
             type="button"
             onClick={submit}
             disabled={!prompt.trim()}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3 text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+            title={!prompt.trim() ? "Décris une idée pour commencer" : "Créer gratuitement"}
+            className="grid size-11 shrink-0 place-items-center self-end rounded-full bg-primary text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Commencer la création"
           >
             <ArrowUp className="size-4" strokeWidth={2.6} />
-            <span className="hidden text-xs font-semibold sm:inline">Créer</span>
           </button>
         </div>
 

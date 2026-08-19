@@ -104,7 +104,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
           );
         })}
       </div>
-      <div className="flex items-center gap-2 p-2.5">
+      <div className="flex items-end gap-2 p-2.5">
         {busy ? (
           <Loader2 className="ml-1 size-4 shrink-0 animate-spin text-primary" aria-hidden />
         ) : (
@@ -122,7 +122,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
         <button
           type="submit"
           disabled={!value.trim() || busy || profileLoading || (profile?.credits ?? 0) < COSTS.song}
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
           title={
             profileLoading
               ? "Préparation de ton espace…"

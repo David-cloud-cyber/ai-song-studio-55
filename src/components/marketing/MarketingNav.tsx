@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
+import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -12,6 +13,7 @@ const links = [
 
 export function MarketingNav() {
   const location = useLocation();
+  const { user, loading: sessionLoading } = useSession();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -100,19 +102,35 @@ export function MarketingNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/auth"
-            className="hidden min-h-10 items-center rounded-full border border-border bg-surface/70 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-elevated sm:inline-flex"
-          >
-            Se connecter
-          </Link>
-          <Link
-            to="/auth"
-            className="inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 sm:px-4 sm:text-sm"
-          >
-            <span className="sm:hidden">Créer</span>
-            <span className="hidden sm:inline">Créer gratuitement</span>
-          </Link>
+          {sessionLoading ? (
+            <div
+              className="h-10 w-24 animate-pulse rounded-full bg-surface/70 sm:w-36"
+              aria-hidden="true"
+            />
+          ) : user ? (
+            <Link
+              to="/studio"
+              className="inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-4 sm:text-sm"
+            >
+              Ouvrir le studio
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/auth"
+                className="hidden min-h-10 items-center rounded-full border border-border bg-surface/70 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
+              >
+                Se connecter
+              </Link>
+              <Link
+                to="/auth"
+                className="inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-4 sm:text-sm"
+              >
+                <span className="sm:hidden">Créer</span>
+                <span className="hidden sm:inline">Créer gratuitement</span>
+              </Link>
+            </>
+          )}
           <button
             type="button"
             className="grid size-10 place-items-center rounded-full border border-border bg-surface text-foreground lg:hidden"
@@ -163,13 +181,15 @@ export function MarketingNav() {
                 </a>
               ),
             )}
-            <Link
-              to="/auth"
-              onClick={() => setOpen(false)}
-              className="mt-1 rounded-xl bg-surface px-3 py-3 text-sm font-semibold text-primary"
-            >
-              Se connecter
-            </Link>
+            {!sessionLoading && (
+              <Link
+                to={user ? "/studio" : "/auth"}
+                onClick={() => setOpen(false)}
+                className="mt-1 rounded-xl bg-surface px-3 py-3 text-sm font-semibold text-primary"
+              >
+                {user ? "Ouvrir le studio" : "Se connecter"}
+              </Link>
+            )}
           </nav>
         </div>
       </div>

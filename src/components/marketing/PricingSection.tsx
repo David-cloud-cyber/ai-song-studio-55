@@ -1,7 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/hooks/use-session";
 import {
   PRICING_PLANS,
   cycleLabel,
@@ -10,6 +13,7 @@ import {
   type BillingCycle,
 } from "@/lib/pricing";
 import { trackEvent } from "@/lib/analytics";
+import { createFapshiCheckout } from "@/lib/payment.functions";
 
 export function PricingSection({ compact = false }: { compact?: boolean }) {
   const [cycle, setCycle] = useState<BillingCycle>("yearly");
@@ -89,8 +93,41 @@ function PricingCard({
   plan: (typeof PRICING_PLANS)[number];
   cycle: BillingCycle;
 }) {
+  const navigate = useNavigate();
+  const { user, loading: sessionLoading } = useSession();
+  const startCheckout = useServerFn(createFapshiCheckout);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const price = getPriceXaf(plan, cycle);
   const featured = plan.id === "pro";
+
+  const startPayment = async () => {
+    if (plan.id === "free" || sessionLoading || paymentBusy) return;
+    trackEvent("pricing_plan_selected", { plan: plan.id, cycle, amount_xaf: price });
+    trackEvent("upgrade_started", { plan: plan.id, cycle });
+    const requestId = crypto.randomUUID();
+    if (!user) {
+      navigate({
+        to: "/auth",
+        search: { plan: plan.id, cycle, autopay: "1", paymentRequestId: requestId },
+      });
+      return;
+    }
+
+    setPaymentBusy(true);
+    trackEvent("payment_started", { plan: plan.id, cycle });
+    try {
+      const result = await startCheckout({
+        data: { plan: plan.id, cycle, requestId },
+      });
+      window.location.assign(result.link);
+    } catch (error) {
+      setPaymentBusy(false);
+      trackEvent("payment_failed", { plan: plan.id, cycle });
+      toast.error("Le paiement fait une petite pause", {
+        description: error instanceof Error ? error.message : "Tu peux réessayer dans un instant.",
+      });
+    }
+  };
 
   return (
     <article
@@ -120,22 +157,30 @@ function PricingCard({
         <p className="mt-1 text-xs text-muted-foreground">{plan.yearlySavings}</p>
       )}
 
-      <Link
-        to="/auth"
-        search={{ plan: plan.id, cycle }}
-        onClick={() => {
-          trackEvent("pricing_plan_selected", { plan: plan.id, cycle, amount_xaf: price });
-          if (plan.id !== "free") trackEvent("upgrade_started", { plan: plan.id, cycle });
-        }}
-        className={cn(
-          "mt-6 inline-flex min-h-11 items-center justify-center rounded-full px-4 py-3 text-sm font-semibold",
-          plan.id === "free"
-            ? "border border-border bg-surface-subtle text-foreground hover:bg-surface-elevated"
-            : "bg-primary text-primary-foreground hover:-translate-y-0.5",
-        )}
-      >
-        {plan.id === "free" ? "Commencer gratuitement" : `Choisir ${plan.name}`}
-      </Link>
+      {plan.id === "free" ? (
+        <Link
+          to="/auth"
+          search={{ plan: plan.id, cycle }}
+          onClick={() =>
+            trackEvent("pricing_plan_selected", { plan: plan.id, cycle, amount_xaf: price })
+          }
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-surface-subtle px-4 py-3 text-sm font-semibold text-foreground hover:bg-surface-elevated"
+        >
+          Commencer gratuitement
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void startPayment()}
+          disabled={sessionLoading || paymentBusy}
+          className={cn(
+            "mt-6 inline-flex min-h-11 items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60",
+            "bg-primary text-primary-foreground",
+          )}
+        >
+          {paymentBusy ? "Ouverture de Fapshi…" : "Payer avec Fapshi"}
+        </button>
+      )}
 
       <ul className="mt-7 space-y-3 text-sm">
         {plan.features

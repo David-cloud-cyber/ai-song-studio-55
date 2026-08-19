@@ -223,6 +223,9 @@ export type Database = {
           credits_granted: number;
           provider: string;
           provider_reference: string | null;
+          idempotency_key: string;
+          provider_link: string | null;
+          provider_link_expires_at: string | null;
           provider_status: string;
           status: string;
           created_at: string;
@@ -239,6 +242,9 @@ export type Database = {
           credits_granted: number;
           provider?: string;
           provider_reference?: string | null;
+          idempotency_key: string;
+          provider_link?: string | null;
+          provider_link_expires_at?: string | null;
           provider_status?: string;
           status?: string;
           created_at?: string;
@@ -255,6 +261,9 @@ export type Database = {
           credits_granted?: number;
           provider?: string;
           provider_reference?: string | null;
+          idempotency_key?: string;
+          provider_link?: string | null;
+          provider_link_expires_at?: string | null;
           provider_status?: string;
           status?: string;
           created_at?: string;

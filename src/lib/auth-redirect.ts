@@ -40,11 +40,15 @@ export function buildAuthReturnUrl(
     path?: "/auth" | "/reset-password";
     plan?: AuthPlan;
     cycle?: AuthCycle;
+    autopay?: boolean;
+    paymentRequestId?: string;
   } = {},
 ) {
   const url = new URL(options.path ?? "/auth", origin);
   url.searchParams.set("redirect", getSafeAuthDestination(destination));
   if (options.plan) url.searchParams.set("plan", options.plan);
   if (options.cycle) url.searchParams.set("cycle", options.cycle);
+  if (options.autopay) url.searchParams.set("autopay", "1");
+  if (options.paymentRequestId) url.searchParams.set("paymentRequestId", options.paymentRequestId);
   return url.toString();
 }

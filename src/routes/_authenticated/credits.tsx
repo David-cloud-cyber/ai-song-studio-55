@@ -28,6 +28,7 @@ const searchSchema = z.object({
   plan: z.enum(["pro", "premier"]).optional(),
   cycle: z.enum(["monthly", "yearly"]).optional(),
   payment: z.enum(["return"]).optional(),
+  orderId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/credits")({
@@ -57,6 +58,7 @@ function CreditsPage() {
   const queryClient = useQueryClient();
   const startCheckout = useServerFn(createFapshiCheckout);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentStage, setPaymentStage] = useState<"idle" | "preparing" | "redirecting">("idle");
   const credits = profile?.credits ?? 0;
   const currentPlan = String(profile?.plan ?? "free").toLowerCase();
   const currentOffer = getPricingPlan(currentPlan);
@@ -80,13 +82,15 @@ function CreditsPage() {
   }, [search.payment]);
 
   const { data: paymentOrder } = useQuery({
-    queryKey: ["latest-payment-order", user?.id],
+    queryKey: ["payment-order", user?.id, search.orderId],
     enabled: Boolean(user && search.payment === "return"),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("payment_orders")
         .select("id,plan,cycle,amount_xaf,status,provider_status,expires_at,created_at")
-        .eq("user_id", user!.id)
+        .eq("user_id", user!.id);
+      if (search.orderId) query = query.eq("id", search.orderId);
+      const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -98,6 +102,8 @@ function CreditsPage() {
       return paymentPolling && status !== "paid" && status !== "failed" ? 3000 : false;
     },
   });
+
+  const paymentExpired = paymentOrder?.provider_status === "EXPIRED";
 
   useEffect(() => {
     if (paymentOrder?.status === "paid") {
@@ -128,17 +134,25 @@ function CreditsPage() {
   const pay = async () => {
     if (!selectedPlan || (selectedPlan.id !== "pro" && selectedPlan.id !== "premier")) return;
     setPaymentBusy(true);
+    setPaymentStage("preparing");
     trackEvent("payment_started", { plan: selectedPlan.id, cycle: selectedCycle });
     try {
-      const result = await startCheckout({ data: { plan: selectedPlan.id, cycle: selectedCycle } });
+      const result = await startCheckout({
+        data: {
+          plan: selectedPlan.id,
+          cycle: selectedCycle,
+          requestId: crypto.randomUUID(),
+        },
+      });
+      setPaymentStage("redirecting");
       window.location.assign(result.link);
     } catch (error) {
+      setPaymentBusy(false);
+      setPaymentStage("idle");
       trackEvent("payment_failed", { plan: selectedPlan.id, cycle: selectedCycle });
       toast.error("Le paiement fait une petite pause", {
         description: error instanceof Error ? error.message : "Tu peux réessayer dans un instant.",
       });
-    } finally {
-      setPaymentBusy(false);
     }
   };
 
@@ -210,7 +224,11 @@ function CreditsPage() {
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neon px-5 py-2.5 text-sm font-semibold text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon disabled:opacity-60"
               >
                 {paymentBusy && <Loader2 className="size-4 animate-spin" />}
-                Continuer vers le paiement
+                {paymentStage === "preparing"
+                  ? "Préparation du paiement…"
+                  : paymentStage === "redirecting"
+                    ? "Ouverture de Fapshi…"
+                    : "Payer avec Fapshi"}
               </button>
             </div>
             <p className="mt-3 text-center text-xs text-zinc-500 sm:text-right">
@@ -227,16 +245,20 @@ function CreditsPage() {
               "rounded-2xl border px-4 py-3 text-sm",
               paymentOrder?.status === "paid"
                 ? "border-emerald-300/20 bg-emerald-300/5 text-emerald-100"
-                : paymentOrder?.status === "failed"
-                  ? "border-rose-300/20 bg-rose-300/5 text-rose-100"
-                  : "border-amber-300/20 bg-amber-300/5 text-amber-100",
+                : paymentExpired
+                  ? "border-amber-300/20 bg-amber-300/5 text-amber-100"
+                  : paymentOrder?.status === "failed"
+                    ? "border-rose-300/20 bg-rose-300/5 text-rose-100"
+                    : "border-amber-300/20 bg-amber-300/5 text-amber-100",
             )}
           >
             {paymentOrder?.status === "paid"
               ? "Paiement confirmé ! Ta formule et tes crédits sont maintenant actifs."
-              : paymentOrder?.status === "failed"
-                ? "Le paiement n'a pas été confirmé. Tu peux choisir une nouvelle fois ta formule."
-                : "Ton paiement est en cours de vérification. La formule sera activée dès sa confirmation."}
+              : paymentExpired
+                ? "Le lien de paiement a expiré. Tu peux en générer un nouveau."
+                : paymentOrder?.status === "failed"
+                  ? "Le paiement n'a pas été confirmé. Tu peux choisir une nouvelle fois ta formule."
+                  : "Ton paiement est en cours de vérification. La formule sera activée dès sa confirmation."}
           </div>
         </section>
       )}

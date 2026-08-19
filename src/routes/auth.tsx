@@ -3,10 +3,12 @@ import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { buildAuthReturnUrl, getSafeAuthDestination } from "@/lib/auth-redirect";
+import { createFapshiCheckout } from "@/lib/payment.functions";
 import { cycleLabel, formatXaf, getPriceXaf, getPricingPlan } from "@/lib/pricing";
 import { seoHead } from "@/lib/seo";
 
@@ -14,6 +16,8 @@ const searchSchema = z.object({
   redirect: z.string().optional(),
   plan: z.enum(["free", "pro", "premier"]).optional(),
   cycle: z.enum(["monthly", "yearly"]).optional(),
+  autopay: z.enum(["1"]).optional(),
+  paymentRequestId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -68,14 +72,36 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const routedRef = useRef(false);
+  const startCheckout = useServerFn(createFapshiCheckout);
   const destination = getSafeAuthDestination(search.redirect);
   const selectedPlan =
     search.plan === "pro" || search.plan === "premier" ? getPricingPlan(search.plan) : null;
   const selectedCycle = search.cycle ?? "monthly";
 
-  const goAfterAuth = useCallback(() => {
+  const goAfterAuth = useCallback(async () => {
     if (routedRef.current) return;
     routedRef.current = true;
+    if (selectedPlan && search.autopay === "1") {
+      setBusy(true);
+      try {
+        const result = await startCheckout({
+          data: {
+            plan: selectedPlan.id as "pro" | "premier",
+            cycle: selectedCycle,
+            requestId: search.paymentRequestId ?? crypto.randomUUID(),
+          },
+        });
+        window.location.assign(result.link);
+      } catch (error) {
+        routedRef.current = false;
+        setBusy(false);
+        toast.error("Le paiement fait une petite pause", {
+          description:
+            error instanceof Error ? error.message : "Tu peux réessayer dans un instant.",
+        });
+      }
+      return;
+    }
     if (selectedPlan) {
       navigate({
         to: "/credits",
@@ -84,7 +110,15 @@ function AuthPage() {
     } else {
       navigate({ to: destination as "/library" });
     }
-  }, [destination, navigate, selectedCycle, selectedPlan]);
+  }, [
+    destination,
+    navigate,
+    search.autopay,
+    search.paymentRequestId,
+    selectedCycle,
+    selectedPlan,
+    startCheckout,
+  ]);
 
   useEffect(() => {
     const callbackError = readAuthCallbackError();
@@ -98,7 +132,7 @@ function AuthPage() {
     ) => {
       if (cancelled || !session) return;
       window.setTimeout(() => {
-        if (!cancelled) goAfterAuth();
+        if (!cancelled) void goAfterAuth();
       }, 0);
     };
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) =>
@@ -136,6 +170,8 @@ function AuthPage() {
             emailRedirectTo: buildAuthReturnUrl(window.location.origin, destination, {
               plan: search.plan,
               cycle: search.cycle,
+              autopay: search.autopay === "1",
+              paymentRequestId: search.paymentRequestId,
             }),
             data: { display_name: displayName || email.split("@")[0] },
           },
@@ -144,7 +180,7 @@ function AuthPage() {
         trackEvent("signup_completed", { plan: search.plan });
         if (data.session) {
           toast.success("Bienvenue dans Loopster", { description: "Ton espace est prêt." });
-          goAfterAuth();
+          await goAfterAuth();
         } else
           toast.success("Compte créé", {
             description: "Vérifie ta boîte mail pour confirmer ton adresse.",
@@ -153,7 +189,7 @@ function AuthPage() {
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      goAfterAuth();
+      await goAfterAuth();
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (message.includes("invalid login") || message.includes("invalid credentials"))
@@ -191,6 +227,8 @@ function AuthPage() {
           redirectTo: buildAuthReturnUrl(window.location.origin, destination, {
             plan: search.plan,
             cycle: search.cycle,
+            autopay: search.autopay === "1",
+            paymentRequestId: search.paymentRequestId,
           }),
         },
       });

@@ -14,8 +14,13 @@ const links = [
 export function MarketingNav() {
   const location = useLocation();
   const { user, loading: sessionLoading } = useSession();
+  const [hydrated, setHydrated] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -102,7 +107,7 @@ export function MarketingNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {sessionLoading ? (
+          {!hydrated || sessionLoading ? (
             <div
               className="h-10 w-24 animate-pulse rounded-full bg-surface/70 sm:w-36"
               aria-hidden="true"
@@ -181,7 +186,7 @@ export function MarketingNav() {
                 </a>
               ),
             )}
-            {!sessionLoading && (
+            {hydrated && !sessionLoading && (
               <Link
                 to={user ? "/studio" : "/auth"}
                 onClick={() => setOpen(false)}

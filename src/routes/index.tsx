@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -120,6 +121,12 @@ const faqStructuredData = {
 };
 
 function Landing() {
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
   const {
     data: creations = [],
     isLoading: galleryLoading,
@@ -137,6 +144,7 @@ function Landing() {
       if (error) throw error;
       return (data ?? []) as unknown as PublicCreation[];
     },
+    enabled: hydrated,
     staleTime: 60_000,
   });
 

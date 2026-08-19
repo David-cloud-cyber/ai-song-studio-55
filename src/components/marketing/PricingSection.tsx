@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Check, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/pricing";
 import { trackEvent } from "@/lib/analytics";
 import { createFapshiCheckout } from "@/lib/payment.functions";
+import { buildAuthReturnUrl } from "@/lib/auth-redirect";
 
 export function PricingSection({ compact = false }: { compact?: boolean }) {
   const [cycle, setCycle] = useState<BillingCycle>("yearly");
@@ -93,23 +94,31 @@ function PricingCard({
   plan: (typeof PRICING_PLANS)[number];
   cycle: BillingCycle;
 }) {
-  const navigate = useNavigate();
   const { user, loading: sessionLoading } = useSession();
+  const [hydrated, setHydrated] = useState(false);
   const startCheckout = useServerFn(createFapshiCheckout);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+  const sessionReady = hydrated && !sessionLoading;
   const price = getPriceXaf(plan, cycle);
   const featured = plan.id === "pro";
 
   const startPayment = async () => {
-    if (plan.id === "free" || sessionLoading || paymentBusy) return;
+    if (plan.id === "free" || !sessionReady || paymentBusy) return;
     trackEvent("pricing_plan_selected", { plan: plan.id, cycle, amount_xaf: price });
     trackEvent("upgrade_started", { plan: plan.id, cycle });
     const requestId = crypto.randomUUID();
     if (!user) {
-      navigate({
-        to: "/auth",
-        search: { plan: plan.id, cycle, autopay: "1", paymentRequestId: requestId },
-      });
+      window.location.assign(
+        buildAuthReturnUrl(window.location.origin, "/library", {
+          plan: plan.id,
+          cycle,
+          autopay: true,
+          paymentRequestId: requestId,
+        }),
+      );
       return;
     }
 
@@ -176,7 +185,7 @@ function PricingCard({
         <button
           type="button"
           onClick={() => void startPayment()}
-          disabled={sessionLoading || paymentBusy}
+          disabled={!sessionReady || paymentBusy}
           className={cn(
             "mt-6 inline-flex min-h-11 items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60",
             "bg-primary text-primary-foreground",

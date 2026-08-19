@@ -21,6 +21,13 @@ export function ensureAuthRestored() {
   if (typeof window === "undefined") return Promise.resolve(null);
   if (restorePromise) return restorePromise;
 
+  if (!unsubscribe) {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      emit({ session, user: session?.user ?? null, loading: false });
+    });
+    unsubscribe = () => data.subscription.unsubscribe();
+  }
+
   restorePromise = supabase.auth
     .getSession()
     .then(({ data }) => {
@@ -28,16 +35,10 @@ export function ensureAuthRestored() {
       return data.session ?? null;
     })
     .catch((error) => {
+      restorePromise = null;
       emit({ session: null, user: null, loading: false });
       throw error;
     });
-
-  if (!unsubscribe) {
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      emit({ session, user: session?.user ?? null, loading: false });
-    });
-    unsubscribe = () => data.subscription.unsubscribe();
-  }
   return restorePromise;
 }
 

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +66,8 @@ function formatDuration(sec: number | null) {
 }
 
 function LibraryPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isLibraryIndex = pathname === "/library" || pathname === "/library/";
   const { user } = useSession();
   const [filter, setFilter] = useState<(typeof filters)[number]["id"]>("all");
   const [q, setQ] = useState("");
@@ -77,7 +79,7 @@ function LibraryPage() {
     refetch,
   } = useQuery({
     queryKey: ["projects", user?.id],
-    enabled: !!user,
+    enabled: isLibraryIndex && !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
@@ -97,6 +99,10 @@ function LibraryPage() {
       (filter === "all" || filter === "archived" || p.status === filter) &&
       (q === "" || p.title.toLowerCase().includes(q.toLowerCase())),
   );
+
+  // `library/$projectId` is a child route of this file-based route. Keep the
+  // list as the index view and let the child render the project detail page.
+  if (!isLibraryIndex) return <Outlet />;
 
   return (
     <PageTransition>

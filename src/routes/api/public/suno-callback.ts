@@ -15,30 +15,33 @@ type CallbackClip = {
 type CallbackBody = {
   code?: number;
   msg?: string;
-  data?: {
-    callbackType?: string;
-    task_id?: string;
-    taskId?: string;
-    data?: CallbackClip[];
-    vocal_removal_info?: {
-      origin_url?: string | null;
-      instrumental_url?: string | null;
-      vocal_url?: string | null;
-      backing_vocals_url?: string | null;
-      drums_url?: string | null;
-      bass_url?: string | null;
-      guitar_url?: string | null;
-      keyboard_url?: string | null;
-      percussion_url?: string | null;
-      strings_url?: string | null;
-      synth_url?: string | null;
-      fx_url?: string | null;
-      brass_url?: string | null;
-      woodwinds_url?: string | null;
-    };
-    images?: string[];
-    [key: string]: unknown;
-  };
+  data?:
+    | {
+        callbackType?: string;
+        task_id?: string;
+        taskId?: string;
+        data?: CallbackClip[];
+        vocal_removal_info?: {
+          origin_url?: string | null;
+          instrumental_url?: string | null;
+          vocal_url?: string | null;
+          backing_vocals_url?: string | null;
+          drums_url?: string | null;
+          bass_url?: string | null;
+          guitar_url?: string | null;
+          keyboard_url?: string | null;
+          percussion_url?: string | null;
+          strings_url?: string | null;
+          synth_url?: string | null;
+          fx_url?: string | null;
+          brass_url?: string | null;
+          woodwinds_url?: string | null;
+        };
+        images?: string[];
+        [key: string]: unknown;
+      }
+    | string
+    | null;
   [key: string]: unknown;
 };
 
@@ -75,7 +78,11 @@ export const Route = createFileRoute("/api/public/suno-callback")({
           return new Response("Bad request", { status: 400 });
         }
 
-        const taskId = body.data?.taskId ?? body.data?.task_id;
+        const callbackData = body.data && typeof body.data === "object" ? body.data : null;
+        // Suno retourne normalement l'identifiant dans `data`, mais certains
+        // traitements (notamment les paroles) peuvent le placer au niveau
+        // racine. Une recherche récursive évite de laisser un job bloqué.
+        const taskId = findString(body, ["taskId", "task_id"]);
         if (!taskId) return new Response("ok");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -206,7 +213,10 @@ export const Route = createFileRoute("/api/public/suno-callback")({
 
         if (job && job.kind === "lyrics") {
           const lyrics =
-            findString(body, ["lyrics", "lyric", "text", "content"]) ?? body.msg ?? null;
+            (typeof body.data === "string" ? body.data : null) ??
+            findString(body, ["lyrics", "lyric", "text", "content"]) ??
+            body.msg ??
+            null;
           if (lyrics && job.project_id) {
             await supabaseAdmin.from("projects").update({ lyrics }).eq("id", job.project_id);
             await supabaseAdmin
@@ -301,7 +311,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
           return new Response("ok");
         }
 
-        const vocal = body.data?.vocal_removal_info;
+        const vocal = callbackData?.vocal_removal_info;
         const isStemJob = Boolean(
           job && ["stems", "advanced-stems", "full-stems"].includes(job.kind),
         );
@@ -492,7 +502,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         }
 
         if (job && job.kind === "cover") {
-          const coverUrl = body.data?.images?.find((value) => typeof value === "string") ?? null;
+          const coverUrl = callbackData?.images?.find((value) => typeof value === "string") ?? null;
           if (coverUrl && job.project_id) {
             const durableCoverPath = await persistGeneratedAsset(
               supabaseAdmin,
@@ -534,7 +544,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
           return new Response("ok");
         }
 
-        const clip = body.data?.data?.[0];
+        const clip = callbackData?.data?.[0];
         const audioUrl = clip?.audio_url ?? clip?.audioUrl ?? null;
         const imageUrl = clip?.image_url ?? clip?.imageUrl ?? null;
 
@@ -651,7 +661,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         } else {
           await supabaseAdmin
             .from("projects")
-            .update({ progress: body.data?.callbackType === "first" ? 75 : 45 })
+            .update({ progress: callbackData?.callbackType === "first" ? 75 : 45 })
             .eq("suno_task_id", taskId);
         }
 

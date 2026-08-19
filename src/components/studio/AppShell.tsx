@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           (sidebarCollapsed ? "md:left-[72px]" : "md:left-64")
         }
       >
-        <div className="mx-auto min-w-0 max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:w-full md:max-w-3xl md:pb-4">
+        <div className="pointer-events-auto mx-auto min-w-0 max-w-md px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:w-full md:max-w-3xl md:pb-4">
           <div className="mb-2 px-1">
             <LivePlayerBar />
           </div>

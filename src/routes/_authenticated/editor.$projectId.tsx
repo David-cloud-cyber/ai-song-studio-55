@@ -83,6 +83,24 @@ function friendlyError(value: string | null | undefined) {
   return "Le traitement n’a pas abouti. Tes crédits ont été rendus si nécessaire.";
 }
 
+function jobLabel(kind: string) {
+  const labels: Record<string, string> = {
+    song: "Création du morceau",
+    instrumental: "Création instrumentale",
+    extend: "Prolongement",
+    stems: "Séparation des pistes",
+    advanced_stems: "Séparation avancée",
+    vocals: "Ajout de voix",
+    lyrics: "Paroles",
+    wav: "Export WAV",
+    video: "Clip vidéo",
+    cover: "Pochette",
+    persona: "Persona",
+    replace_section: "Remplacement de section",
+  };
+  return labels[kind] ?? "Traitement créatif";
+}
+
 function EditorPage() {
   const { projectId } = Route.useParams();
   const { data: profile } = useProfile();
@@ -153,11 +171,18 @@ function EditorPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("generation_jobs")
-        .select("kind,status,error_message")
+        .select("kind,status,error_message,credits_spent,credits_refunded,created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Array<{ kind: string; status: string; error_message: string | null }>;
+      return data as Array<{
+        kind: string;
+        status: string;
+        error_message: string | null;
+        credits_spent: number;
+        credits_refunded: number;
+        created_at: string;
+      }>;
     },
     refetchInterval: (query) =>
       (query.state.data as Array<{ status: string }> | undefined)?.some(
@@ -207,6 +232,11 @@ function EditorPage() {
   const duration = project.duration_seconds
     ? `${Math.floor(project.duration_seconds / 60)}:${String(project.duration_seconds % 60).padStart(2, "0")}`
     : "—";
+  const latestJobs = Array.from(new Map(jobs.map((job) => [job.kind, job])).values());
+  const activeJobs = latestJobs.filter(
+    (job) => job.status === "pending" || job.status === "processing",
+  );
+  const failedJobs = latestJobs.filter((job) => job.status === "failed");
 
   const refresh = async () => {
     await Promise.all([
@@ -272,6 +302,37 @@ function EditorPage() {
               Recommencer une création
             </Link>
           </div>
+        )}
+
+        {activeJobs.length > 0 && (
+          <section
+            role="status"
+            aria-live="polite"
+            className="rounded-2xl border border-neon/25 bg-neon/5 p-4"
+          >
+            <div className="flex items-start gap-3">
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-neon" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-neon">Loopster travaille sur ton projet</p>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">
+                  {activeJobs.map((job) => jobLabel(job.kind)).join(" · ")} · la page se met à jour
+                  automatiquement.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {failedJobs.length > 0 && (
+          <section role="alert" className="rounded-2xl border border-danger/30 bg-danger/10 p-4">
+            <p className="text-sm font-semibold text-danger-foreground">
+              Un traitement n’a pas abouti
+            </p>
+            <p className="mt-1 text-xs leading-5 text-danger-foreground/80">
+              {failedJobs.map((job) => jobLabel(job.kind)).join(" · ")} : tes crédits sont rendus
+              automatiquement lorsque l’échec est confirmé.
+            </p>
+          </section>
         )}
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -369,7 +430,7 @@ function EditorPage() {
                   title="Prolonger le morceau"
                   description={`${COSTS.extend} crédits · crée une nouvelle version`}
                   busy={busy === "extend"}
-                  disabled={!project.suno_audio_id}
+                  disabled={!project.suno_audio_id || jobIsRunning("extend")}
                   onClick={() =>
                     run(
                       "extend",
@@ -388,7 +449,7 @@ function EditorPage() {
                   title="Créer un persona"
                   description={`${COSTS.persona} crédits · réutiliser ce style`}
                   busy={busy === "persona"}
-                  disabled={!project.suno_task_id}
+                  disabled={!project.suno_task_id || jobIsRunning("persona")}
                   onClick={() => {
                     const name = window.prompt("Donne un nom à ce persona");
                     if (!name?.trim()) return;
@@ -411,7 +472,11 @@ function EditorPage() {
                   title="Séparer les pistes"
                   description={`${COSTS.stems} crédits · voix et instrumental`}
                   busy={busy === "stems"}
-                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  disabled={
+                    !project.suno_audio_id ||
+                    stems?.status === "processing" ||
+                    jobIsRunning("stems")
+                  }
                   onClick={() =>
                     run(
                       "stems",
@@ -428,7 +493,11 @@ function EditorPage() {
                   title="Séparation avancée"
                   description={`${COSTS.advancedStems} crédits · pistes détaillées`}
                   busy={busy === "advanced-stems"}
-                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  disabled={
+                    !project.suno_audio_id ||
+                    stems?.status === "processing" ||
+                    jobIsRunning("advanced_stems")
+                  }
                   onClick={() =>
                     run(
                       "advanced-stems",
@@ -449,7 +518,11 @@ function EditorPage() {
                   title="Toutes les pistes"
                   description={`${COSTS.fullStems} crédits · séparation complète`}
                   busy={busy === "full-stems"}
-                  disabled={!project.suno_audio_id || stems?.status === "processing"}
+                  disabled={
+                    !project.suno_audio_id ||
+                    stems?.status === "processing" ||
+                    jobIsRunning("full_stems")
+                  }
                   onClick={() =>
                     run(
                       "full-stems",
@@ -470,7 +543,7 @@ function EditorPage() {
                   title="Ajouter une voix"
                   description={`${COSTS.vocals} crédits · crée une version chantée`}
                   busy={busy === "vocals"}
-                  disabled={!audioSource}
+                  disabled={!audioSource || jobIsRunning("vocals")}
                   onClick={() =>
                     run(
                       "vocals",
@@ -493,7 +566,7 @@ function EditorPage() {
                   title="Ajouter un instrumental"
                   description={`${COSTS.addInstrumental} crédits · crée une version instru`}
                   busy={busy === "instrumental"}
-                  disabled={!audioSource}
+                  disabled={!audioSource || jobIsRunning("instrumental")}
                   onClick={() =>
                     run(
                       "instrumental",
@@ -642,12 +715,16 @@ function EditorPage() {
                 <div>
                   <h2 className="text-sm font-semibold">Créer les paroles</h2>
                   <p className="mt-1 text-xs text-zinc-400">
-                    Une version de paroles sera ajoutée à ce projet.
+                    {jobIsRunning("lyrics")
+                      ? "Les paroles sont en préparation. Tu peux continuer à explorer Loopster."
+                      : latestJob("lyrics")?.status === "failed"
+                        ? "La tentative précédente n’a pas abouti. Tu peux réessayer sans perdre tes crédits."
+                        : "Une version de paroles sera ajoutée à ce projet."}
                   </p>
                 </div>
                 <button
                   type="button"
-                  disabled={Boolean(busy)}
+                  disabled={Boolean(busy) || jobIsRunning("lyrics")}
                   onClick={() =>
                     run(
                       "lyrics",
@@ -664,8 +741,14 @@ function EditorPage() {
                   }
                   className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-neon/30 bg-neon/10 px-3 text-xs font-semibold text-neon disabled:opacity-50"
                 >
-                  {busy === "lyrics" && <Loader2 className="size-3.5 animate-spin" />}
-                  Générer
+                  {(busy === "lyrics" || jobIsRunning("lyrics")) && (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  )}
+                  {jobIsRunning("lyrics")
+                    ? "En cours…"
+                    : latestJob("lyrics")?.status === "failed"
+                      ? "Réessayer"
+                      : "Générer"}
                 </button>
               </section>
             )}

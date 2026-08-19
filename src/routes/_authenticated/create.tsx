@@ -151,6 +151,51 @@ function CreatePage() {
   }, [template.id]);
 
   useEffect(() => {
+    if (search.sourceProjectId) return;
+    try {
+      const raw = window.localStorage.getItem("loopster.onboarding.preferences");
+      if (!raw) return;
+      const preferences = JSON.parse(raw) as {
+        prompt?: unknown;
+        style?: unknown;
+        mood?: unknown;
+        voice?: unknown;
+      };
+      if (typeof preferences.prompt === "string" && preferences.prompt.trim()) {
+        setPrompt(preferences.prompt.trim());
+      }
+
+      const findOption = (
+        value: unknown,
+        options: readonly string[],
+        aliases: Record<string, string>,
+      ) => {
+        if (typeof value !== "string") return null;
+        const normalized = value.trim().toLocaleLowerCase();
+        const alias = aliases[normalized] ?? value.trim();
+        return (
+          options.find((option) => option.toLocaleLowerCase() === alias.toLocaleLowerCase()) ?? null
+        );
+      };
+      const selectedGenre = findOption(preferences.style, genres, {
+        "afro pop": "Pop",
+        house: "Techno",
+        rap: "Drill",
+      });
+      const selectedMood = findOption(preferences.mood, moods, {
+        énergique: "Agressif",
+      });
+      const selectedVoice = findOption(preferences.voice, voices, {});
+      if (selectedGenre) setGenre(selectedGenre);
+      if (selectedMood) setMood(selectedMood);
+      if (selectedVoice) setVoice(selectedVoice);
+      window.localStorage.removeItem("loopster.onboarding.preferences");
+    } catch {
+      // Une préférence locale invalide ne doit jamais bloquer la création.
+    }
+  }, [search.sourceProjectId]);
+
+  useEffect(() => {
     if (!sourceProject) return;
     setTitle(
       search.mode === "remix"

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useSession } from "@/hooks/use-session";
 import { useProfile } from "@/hooks/use-profile";
+import { useFreePublicationNotice } from "@/hooks/use-free-publication-notice";
 import { generateTrack, generateUploadedTrack, COSTS } from "@/lib/suno.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { genres, moods, voices, templates } from "@/data/mock";
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { FreePublicationNotice } from "@/components/studio/FreePublicationNotice";
 
 const GRADIENTS = [
   "from-cyan-400 via-blue-600 to-fuchsia-700",
@@ -76,7 +78,8 @@ function CreatePage() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const freePublicationNotice = useFreePublicationNotice(profile);
   const generate = useServerFn(generateTrack);
   const generateUploaded = useServerFn(generateUploadedTrack);
 
@@ -217,7 +220,7 @@ function CreatePage() {
   const cost = instrumental ? COSTS.instrumental : COSTS.song;
   const enough = (profile?.credits ?? 0) >= cost;
 
-  const launch = async () => {
+  const runGeneration = async () => {
     if (!user) return;
     if (!enough) {
       toast.error("Il te manque un peu d'élan", {
@@ -305,6 +308,10 @@ function CreatePage() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const launch = () => {
+    freePublicationNotice.request(() => void runGeneration());
   };
 
   return (
@@ -571,7 +578,7 @@ function CreatePage() {
       <section className="px-5 pt-6">
         <button
           onClick={launch}
-          disabled={generating || !user}
+          disabled={generating || profileLoading || !user}
           className="neon-pulse flex w-full items-center justify-center gap-2 rounded-2xl bg-neon py-4 text-sm font-semibold text-background disabled:opacity-60"
         >
           {generating ? (
@@ -591,6 +598,12 @@ function CreatePage() {
           </p>
         )}
       </section>
+      <FreePublicationNotice
+        open={freePublicationNotice.open}
+        saving={freePublicationNotice.saving}
+        onConfirm={() => void freePublicationNotice.confirm()}
+        onCancel={freePublicationNotice.cancel}
+      />
     </PageTransition>
   );
 }

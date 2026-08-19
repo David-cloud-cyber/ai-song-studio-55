@@ -612,11 +612,23 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               cover_url: null,
               public_audio_url: null,
               public_image_url: null,
+              is_public: false,
+              publication_status: "not_required",
+              publication_error: null,
+              publication_attempts: 0,
+              publication_last_attempt_at: null,
               suno_audio_id: clip?.id ?? null,
               duration_seconds: clip?.duration ? Math.round(clip.duration) : null,
               error_message: null,
             })
             .eq("suno_task_id", taskId);
+          try {
+            const { autoPublishFreeProject } = await import("@/lib/publication.server");
+            await autoPublishFreeProject(supabaseAdmin, job.project_id);
+          } catch {
+            // La création reste disponible dans la bibliothèque; la reprise
+            // automatique réessaiera lors de la prochaine ouverture du studio.
+          }
           const { data: latestVersion } = await supabaseAdmin
             .from("project_versions")
             .select("version_number")

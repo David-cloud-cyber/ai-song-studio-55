@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { generateTrack, COSTS } from "@/lib/suno.functions";
 import { useProfile } from "@/hooks/use-profile";
+import { useFreePublicationNotice } from "@/hooks/use-free-publication-notice";
+import { FreePublicationNotice } from "@/components/studio/FreePublicationNotice";
 
 const chips = ["Phonk", "Agressif", "120 BPM", "Voix féminine", "Cinématique", "Lo-fi", "Trap"];
 
@@ -17,6 +19,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useProfile();
+  const freePublicationNotice = useFreePublicationNotice(profile);
   const generate = useServerFn(generateTrack);
 
   const toggleChip = (chip: string) => {
@@ -28,7 +31,7 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
     }
   };
 
-  const submit = async () => {
+  const runGeneration = async () => {
     const prompt = value.trim();
     if (!prompt || busy) return;
     if ((profile?.credits ?? 0) < COSTS.song) {
@@ -73,6 +76,10 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const submit = () => {
+    freePublicationNotice.request(() => void runGeneration());
   };
 
   return (
@@ -135,6 +142,12 @@ export function PromptComposer({ compact = true }: { compact?: boolean }) {
           <ArrowUp className="size-4" strokeWidth={2.6} />
         </button>
       </div>
+      <FreePublicationNotice
+        open={freePublicationNotice.open}
+        saving={freePublicationNotice.saving}
+        onConfirm={() => void freePublicationNotice.confirm()}
+        onCancel={freePublicationNotice.cancel}
+      />
     </form>
   );
 }

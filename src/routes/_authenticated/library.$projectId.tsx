@@ -22,7 +22,7 @@ import {
   createProjectCover,
   COSTS,
 } from "@/lib/suno.functions";
-import { setProjectVisibility } from "@/lib/media.functions";
+import { archiveProject, setProjectVisibility } from "@/lib/media.functions";
 import {
   ArrowLeft,
   Archive,
@@ -90,6 +90,11 @@ type Project = {
   video_path: string | null;
   is_public: boolean;
   published_at: string | null;
+  publication_status: "not_required" | "pending" | "published" | "retry_pending" | "failed";
+  publication_policy: "automatic_free" | "manual_paid";
+  publication_error: string | null;
+  publication_attempts: number;
+  publication_last_attempt_at: string | null;
   archived_at: string | null;
   parent_project_id: string | null;
   voice: string | null;
@@ -168,6 +173,7 @@ function ProjectDetail() {
   const runVideo = useServerFn(createProjectVideo);
   const runCover = useServerFn(createProjectCover);
   const runVisibility = useServerFn(setProjectVisibility);
+  const runArchive = useServerFn(archiveProject);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -434,17 +440,23 @@ function ProjectDetail() {
   const toggleArchive = async () => {
     setArchiving(true);
     const archived = !project.archived_at;
-    const { error } = await supabase
-      .from("projects")
-      .update({
-        archived_at: archived ? new Date().toISOString() : null,
-        is_public: archived ? false : project.is_public,
-        published_at: archived ? null : project.published_at,
-      })
-      .eq("id", project.id);
+    let error: unknown = null;
+    try {
+      if (archived) {
+        await runArchive({ data: { projectId: project.id } });
+      } else {
+        const result = await supabase
+          .from("projects")
+          .update({ archived_at: null })
+          .eq("id", project.id);
+        error = result.error;
+      }
+    } catch (caught) {
+      error = caught;
+    }
     if (error) {
       toast.error("Le projet n'a pas pu être déplacé", {
-        description: "On retente dans un instant.",
+        description: error instanceof Error ? error.message : "On retente dans un instant.",
       });
     } else {
       await queryClient.invalidateQueries({ queryKey: ["project", project.id] });
@@ -459,6 +471,12 @@ function ProjectDetail() {
 
   const togglePublic = async () => {
     if (publishing || isArchived || project.status !== "ready" || !audioSource) return;
+    if (!canDownload && !project.is_public) {
+      toast.error("La publication est automatique avec l’offre gratuite", {
+        description: "Passe à une formule payante pour choisir la visibilité de chaque création.",
+      });
+      return;
+    }
     setPublishing(true);
     const next = !project.is_public;
     try {
@@ -759,19 +777,28 @@ function ProjectDetail() {
             >
               <Share2 className="size-3.5" /> Partager
             </button>
-            <button
-              type="button"
-              onClick={() => void togglePublic()}
-              disabled={isArchived || publishing || project.status !== "ready" || !audioSource}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {publishing ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Globe2 className="size-3.5" />
-              )}
-              {project.is_public ? "Retirer de la galerie" : "Publier dans la galerie"}
-            </button>
+            {canDownload ? (
+              <button
+                type="button"
+                onClick={() => void togglePublic()}
+                disabled={isArchived || publishing || project.status !== "ready" || !audioSource}
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-surface py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {publishing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Globe2 className="size-3.5" />
+                )}
+                {project.is_public ? "Retirer de la galerie" : "Publier dans la galerie"}
+              </button>
+            ) : (
+              <div className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-neon/20 bg-neon/5 px-3 text-center text-[11px] font-semibold text-neon">
+                <Globe2 className="size-3.5 shrink-0" />
+                {project.is_public
+                  ? "Visible dans la galerie"
+                  : "Publication automatique après rendu"}
+              </div>
+            )}
             <a
               href={`/create?sourceProjectId=${project.id}&mode=remix`}
               aria-disabled={isArchived}

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isPaidPlan } from "@/lib/plans";
 
 export const setProjectVisibility = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -21,33 +22,20 @@ export const setProjectVisibility = createServerFn({ method: "POST" })
     if (!project) throw new Error("Projet introuvable.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { publishGeneratedAsset, removePublishedAsset } =
-      await import("@/lib/persist-generated-asset.server");
+    const { publishProjectAssets, unpublishProjectAssets } =
+      await import("@/lib/publication.server");
 
     if (!data.isPublic) {
-      await Promise.all(
-        [
-          project.public_audio_url,
-          project.public_image_url,
-          project.public_wav_url,
-          project.public_video_url,
-        ]
-          .filter((value): value is string => Boolean(value))
-          .map((value) => removePublishedAsset(supabaseAdmin, value)),
-      );
-      const { error: updateError } = await supabase
-        .from("projects")
-        .update({
-          is_public: false,
-          published_at: null,
-          public_audio_url: null,
-          public_image_url: null,
-          public_wav_url: null,
-          public_video_url: null,
-        })
-        .eq("id", project.id)
-        .eq("user_id", userId);
-      if (updateError) throw updateError;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("plan,subscription_status,subscription_expires_at")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      if (!isPaidPlan(profile)) {
+        throw new Error("Les créations gratuites restent visibles dans la galerie Loopster.");
+      }
+      await unpublishProjectAssets(supabaseAdmin, project.id);
       return { isPublic: false };
     }
 
@@ -55,34 +43,48 @@ export const setProjectVisibility = createServerFn({ method: "POST" })
       throw new Error("Le morceau doit être terminé avant sa publication.");
     }
 
-    const audioUrl = await publishGeneratedAsset(
-      supabaseAdmin,
-      project.audio_path ?? project.audio_url,
-      "audio/mpeg",
-    );
-    if (!audioUrl) throw new Error("Le fichier audio ne peut pas encore être publié.");
+    const result = await publishProjectAssets(supabaseAdmin, project.id);
+    if (result.status !== "published" && result.status !== "already_published") {
+      throw new Error(result.reason);
+    }
+    return { isPublic: true };
+  });
 
-    const [imageUrl, wavUrl, videoUrl] = await Promise.all([
-      publishGeneratedAsset(
-        supabaseAdmin,
-        project.image_path ?? project.image_url ?? project.cover_url,
-        "image/jpeg",
-      ),
-      publishGeneratedAsset(supabaseAdmin, project.wav_path ?? project.wav_url, "audio/wav"),
-      publishGeneratedAsset(supabaseAdmin, project.video_path ?? project.video_url, "video/mp4"),
-    ]);
-    const { error: updateError } = await supabase
+export const archiveProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ projectId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: project, error } = await supabase
+      .from("projects")
+      .select("id,is_public,public_audio_url,public_image_url,public_wav_url,public_video_url")
+      .eq("id", data.projectId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!project) throw new Error("Projet introuvable.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (
+      project.is_public ||
+      project.public_audio_url ||
+      project.public_image_url ||
+      project.public_wav_url ||
+      project.public_video_url
+    ) {
+      const { unpublishProjectAssets } = await import("@/lib/publication.server");
+      await unpublishProjectAssets(supabaseAdmin, project.id);
+    }
+
+    const { error: archiveError } = await supabase
       .from("projects")
       .update({
-        is_public: true,
-        published_at: new Date().toISOString(),
-        public_audio_url: audioUrl,
-        public_image_url: imageUrl,
-        public_wav_url: wavUrl,
-        public_video_url: videoUrl,
+        archived_at: new Date().toISOString(),
+        is_public: false,
+        published_at: null,
       })
       .eq("id", project.id)
       .eq("user_id", userId);
-    if (updateError) throw updateError;
-    return { isPublic: true };
+    if (archiveError) throw archiveError;
+    return { archived: true };
   });

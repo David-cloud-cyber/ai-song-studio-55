@@ -38,6 +38,7 @@ import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedEditorProjectIdRouteImport } from './routes/_authenticated/editor.$projectId'
 import { Route as AuthenticatedLibraryProjectIdRouteImport } from './routes/_authenticated/library.$projectId'
+import { Route as ApiInternalPublicationBackfillRouteImport } from './routes/api/internal/publication-backfill'
 import { Route as ApiPublicFapshiWebhookRouteImport } from './routes/api/public/fapshi-webhook'
 import { Route as ApiPublicSunoCallbackRouteImport } from './routes/api/public/suno-callback'
 
@@ -187,6 +188,12 @@ const AuthenticatedLibraryProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
+const ApiInternalPublicationBackfillRoute =
+  ApiInternalPublicationBackfillRouteImport.update({
+    id: '/api/internal/publication-backfill',
+    path: '/api/internal/publication-backfill',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicFapshiWebhookRoute = ApiPublicFapshiWebhookRouteImport.update({
   id: '/api/public/fapshi-webhook',
   path: '/api/public/fapshi-webhook',
@@ -227,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
@@ -259,6 +267,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
@@ -293,6 +302,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/_authenticated/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
+  '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   fileRoutesByTo: FileRoutesByTo
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/editor/$projectId'
     | '/library/$projectId'
+    | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   id:
@@ -392,6 +404,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/_authenticated/editor/$projectId'
     | '/_authenticated/library/$projectId'
+    | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
     | '/api/public/suno-callback'
   fileRoutesById: FileRoutesById
@@ -417,6 +430,7 @@ export interface RootRouteChildren {
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  ApiInternalPublicationBackfillRoute: typeof ApiInternalPublicationBackfillRoute
   ApiPublicFapshiWebhookRoute: typeof ApiPublicFapshiWebhookRoute
   ApiPublicSunoCallbackRoute: typeof ApiPublicSunoCallbackRoute
 }
@@ -626,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryProjectIdRouteImport
       parentRoute: typeof AuthenticatedLibraryRoute
     }
+    '/api/internal/publication-backfill': {
+      id: '/api/internal/publication-backfill'
+      path: '/api/internal/publication-backfill'
+      fullPath: '/api/internal/publication-backfill'
+      preLoaderRoute: typeof ApiInternalPublicationBackfillRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/fapshi-webhook': {
       id: '/api/public/fapshi-webhook'
       path: '/api/public/fapshi-webhook'
@@ -708,6 +729,7 @@ const rootRouteChildren: RootRouteChildren = {
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  ApiInternalPublicationBackfillRoute: ApiInternalPublicationBackfillRoute,
   ApiPublicFapshiWebhookRoute: ApiPublicFapshiWebhookRoute,
   ApiPublicSunoCallbackRoute: ApiPublicSunoCallbackRoute,
 }

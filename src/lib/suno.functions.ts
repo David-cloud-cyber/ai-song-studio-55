@@ -186,6 +186,11 @@ async function assertCredits(supabase: AuthedClient, userId: string, amount: num
   if (error) throw error;
   if (profile) {
     const paid = isPaidPlan(profile as PlanProfile);
+    const noticeSeen = (profile as { free_publication_notice_seen_at?: string | null })
+      .free_publication_notice_seen_at;
+    if (!paid && !noticeSeen) {
+      throw new Error("Lis l’information sur la galerie avant de lancer une création gratuite.");
+    }
     const resetAt = (profile as { daily_credits_reset_at?: string | null }).daily_credits_reset_at;
     const today = new Date().toISOString().slice(0, 10);
     if (!paid && resetAt && resetAt < today) {
@@ -216,6 +221,16 @@ async function assertPaidPlan(supabase: AuthedClient, userId: string) {
   if (!isPaidPlan(profile)) {
     throw new Error("Les téléchargements sont réservés aux abonnés Loopster ✨");
   }
+}
+
+async function getPublicationPolicy(supabase: AuthedClient, userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("plan,subscription_status,subscription_expires_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return isPaidPlan(data as PlanProfile) ? ("manual_paid" as const) : ("automatic_free" as const);
 }
 
 export const generateTrack = createServerFn({ method: "POST" })
@@ -250,6 +265,7 @@ export const generateTrack = createServerFn({ method: "POST" })
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
 
     await assertCredits(supabase, userId, cost);
+    const publicationPolicy = await getPublicationPolicy(supabase, userId);
 
     const style = data.style || [data.genre, data.mood, data.voice].filter(Boolean).join(", ");
 
@@ -272,6 +288,7 @@ export const generateTrack = createServerFn({ method: "POST" })
         style,
         cover_gradient: data.coverGradient ?? null,
         parent_project_id: data.parentProjectId ?? null,
+        publication_policy: publicationPolicy,
         tags: [data.genre, data.mood].filter(Boolean) as string[],
       })
       .select("id")
@@ -415,14 +432,8 @@ export const extendTrack = createServerFn({ method: "POST" })
     if (!parent) throw new Error("Projet introuvable");
     if (!parent.suno_audio_id) throw new Error("Ce morceau n'a pas encore d'audio à prolonger.");
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!profile || profile.credits < COSTS.extend) {
-      throw new Error(`Crédits insuffisants : ${COSTS.extend} crédits requis.`);
-    }
+    await assertCredits(supabase, userId, COSTS.extend);
+    const publicationPolicy = await getPublicationPolicy(supabase, userId);
 
     const title = `${parent.title} (extension)`;
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
@@ -443,6 +454,7 @@ export const extendTrack = createServerFn({ method: "POST" })
         cover_gradient: parent.cover_gradient,
         tags: parent.tags,
         parent_project_id: parent.id,
+        publication_policy: publicationPolicy,
       })
       .select("id")
       .single();
@@ -614,6 +626,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
     if (!parent || !(parent.audio_path ?? parent.audio_url))
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter une voix.");
     await assertCredits(supabase, userId, COSTS.vocals);
+    const publicationPolicy = await getPublicationPolicy(supabase, userId);
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
 
     const { data: child, error: insertError } = await supabase
@@ -633,6 +646,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
         cover_gradient: parent.cover_gradient,
         tags: parent.tags,
         parent_project_id: parent.id,
+        publication_policy: publicationPolicy,
       })
       .select("id")
       .single();
@@ -730,6 +744,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const cost = data.instrumental ? COSTS.instrumental : COSTS.song;
     await assertCredits(supabase, userId, cost);
+    const publicationPolicy = await getPublicationPolicy(supabase, userId);
 
     const style = data.style || [data.genre, data.mood].filter(Boolean).join(", ");
     const { data: project, error: insertError } = await supabase
@@ -747,6 +762,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         style,
         cover_gradient: data.coverGradient ?? null,
         parent_project_id: data.parentProjectId ?? null,
+        publication_policy: publicationPolicy,
         tags: [data.genre, data.mood].filter(Boolean) as string[],
       })
       .select("id")
@@ -841,6 +857,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
     if (!parent || !(parent.audio_path ?? parent.audio_url))
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter un instrumental.");
     await assertCredits(supabase, userId, COSTS.addInstrumental);
+    const publicationPolicy = await getPublicationPolicy(supabase, userId);
     const idempotencyKey = data.requestId ?? crypto.randomUUID();
 
     const { data: child, error: insertError } = await supabase
@@ -860,6 +877,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
         cover_gradient: parent.cover_gradient,
         tags: parent.tags,
         parent_project_id: parent.id,
+        publication_policy: publicationPolicy,
       })
       .select("id")
       .single();
@@ -1272,11 +1290,22 @@ export const syncProject = createServerFn({ method: "POST" })
             cover_url: null,
             public_audio_url: null,
             public_image_url: null,
+            is_public: false,
+            publication_status: "not_required",
+            publication_error: null,
+            publication_attempts: 0,
+            publication_last_attempt_at: null,
             suno_audio_id: clip.id,
             duration_seconds: clip.duration ? Math.round(clip.duration) : project.duration_seconds,
             error_message: null,
           })
           .eq("id", project.id);
+        try {
+          const { autoPublishFreeProject } = await import("@/lib/publication.server");
+          await autoPublishFreeProject(supabaseAdmin, project.id);
+        } catch {
+          // La publication sera reprise à la prochaine ouverture du studio.
+        }
         await completeProviderJob(supabaseAdmin, project.suno_task_id, {
           audioPath: durableAudioPath,
           imagePath: durableImagePath,

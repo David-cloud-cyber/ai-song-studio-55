@@ -151,6 +151,8 @@ export type Database = {
           preferred_mood: string | null;
           preferred_style: string | null;
           preferred_voice: string | null;
+          free_publication_notice_seen_at: string | null;
+          free_publication_notice_version: string | null;
           plan: string;
           subscription_status: string;
           subscription_expires_at: string | null;
@@ -172,6 +174,8 @@ export type Database = {
           preferred_mood?: string | null;
           preferred_style?: string | null;
           preferred_voice?: string | null;
+          free_publication_notice_seen_at?: string | null;
+          free_publication_notice_version?: string | null;
           plan?: string;
           subscription_status?: string;
           subscription_expires_at?: string | null;
@@ -193,6 +197,8 @@ export type Database = {
           preferred_mood?: string | null;
           preferred_style?: string | null;
           preferred_voice?: string | null;
+          free_publication_notice_seen_at?: string | null;
+          free_publication_notice_version?: string | null;
           plan?: string;
           subscription_status?: string;
           subscription_expires_at?: string | null;
@@ -308,6 +314,11 @@ export type Database = {
           is_public: boolean;
           is_favorite: boolean;
           published_at: string | null;
+          publication_attempts: number;
+          publication_policy: string;
+          publication_error: string | null;
+          publication_last_attempt_at: string | null;
+          publication_status: string;
           lyrics: string | null;
           model: string | null;
           mood: string | null;
@@ -354,6 +365,11 @@ export type Database = {
           is_public?: boolean;
           is_favorite?: boolean;
           published_at?: string | null;
+          publication_attempts?: number;
+          publication_policy?: string;
+          publication_error?: string | null;
+          publication_last_attempt_at?: string | null;
+          publication_status?: string;
           lyrics?: string | null;
           model?: string | null;
           mood?: string | null;
@@ -400,6 +416,11 @@ export type Database = {
           is_public?: boolean;
           is_favorite?: boolean;
           published_at?: string | null;
+          publication_attempts?: number;
+          publication_policy?: string;
+          publication_error?: string | null;
+          publication_last_attempt_at?: string | null;
+          publication_status?: string;
           lyrics?: string | null;
           model?: string | null;
           mood?: string | null;

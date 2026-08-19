@@ -14,6 +14,8 @@ export type Profile = {
   preferred_style: string | null;
   preferred_mood: string | null;
   preferred_voice: string | null;
+  free_publication_notice_seen_at: string | null;
+  free_publication_notice_version: string | null;
   credits: number;
   plan: string;
   subscription_status: string;

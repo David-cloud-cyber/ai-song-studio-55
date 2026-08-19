@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { BottomTabs } from "./BottomTabs";
 import { DesktopSidebar } from "./DesktopSidebar";
 import { LivePlayerBar } from "./LivePlayerBar";
@@ -8,6 +9,8 @@ import { OnboardingGate } from "./OnboardingGate";
 import { PromptComposer } from "./PromptComposer";
 import { TopBar } from "./TopBar";
 import { useGenerationRecovery } from "@/hooks/use-generation-recovery";
+import { useSession } from "@/hooks/use-session";
+import { retryPendingPublications } from "@/lib/publication.functions";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -28,6 +31,8 @@ const PUBLIC_ROUTES = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user } = useSession();
+  const retryPublications = useServerFn(retryPendingPublications);
   const hideComposer =
     pathname.startsWith("/create") ||
     pathname.startsWith("/editor") ||
@@ -37,6 +42,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     route === "/" ? pathname === route : pathname.startsWith(route),
   );
   useGenerationRecovery();
+  useEffect(() => {
+    if (!user) return;
+    void retryPublications({ data: {} }).catch(() => {
+      // Une reprise de publication ne doit jamais bloquer l’ouverture du studio.
+    });
+  }, [retryPublications, user]);
   useEffect(() => {
     setSidebarCollapsed(window.localStorage.getItem("loopster.sidebar.collapsed") === "true");
   }, []);

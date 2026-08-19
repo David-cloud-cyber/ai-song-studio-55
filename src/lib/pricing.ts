@@ -28,7 +28,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     id: "free",
     name: "Gratuit",
-    audience: "Pour découvrir Loopster sans carte bancaire.",
+    audience: "Découvrir Loopster sans carte.",
     monthlyPriceXaf: 0,
     yearlyPriceXaf: 0,
     credits: 80,
@@ -50,7 +50,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     id: "pro",
     name: "Pro",
-    audience: "Pour créer régulièrement et exporter tes morceaux.",
+    audience: "Créer et exporter tes morceaux.",
     monthlyPriceXaf: 5900,
     yearlyPriceXaf: 59000,
     yearlySavings: "2 mois offerts · 11 800 XAF économisés",
@@ -76,7 +76,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     id: "premier",
     name: "Premier",
-    audience: "Pour produire en volume et accéder aux outils avancés.",
+    audience: "Produire en volume, simplement.",
     monthlyPriceXaf: 15900,
     yearlyPriceXaf: 159000,
     yearlySavings: "2 mois offerts · 31 800 XAF économisés",

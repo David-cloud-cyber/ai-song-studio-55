@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/fapshi-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expectedSecret = process.env.FAPSHI_WEBHOOK_SECRET;
+        const expectedSecret = process.env.FAPSHI_WEBHOOK_SECRET?.replace(/^\uFEFF/, "").trim();
         const receivedSecret = request.headers.get("x-wh-secret");
         if (!expectedSecret) {
           return new Response("Payment service unavailable", { status: 503 });

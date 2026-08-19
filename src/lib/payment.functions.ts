@@ -33,6 +33,27 @@ function isFapshiLink(value: string) {
   }
 }
 
+function getFapshiBaseUrl() {
+  const raw = (process.env.FAPSHI_API_URL ?? "https://live.fapshi.com")
+    .replace(/^\uFEFF/, "")
+    .trim();
+  try {
+    const url = new URL(raw);
+    if (
+      url.protocol !== "https:" ||
+      !new Set(["live.fapshi.com", "sandbox.fapshi.com"]).has(url.hostname)
+    )
+      throw new Error();
+    return url.origin;
+  } catch {
+    throw new Error("Le service de paiement est momentanément indisponible.");
+  }
+}
+
+function cleanSecret(value: string | undefined) {
+  return value?.replace(/^\uFEFF/, "").trim();
+}
+
 /** Creates a hosted checkout link without ever exposing provider credentials to the browser. */
 export const createFapshiCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -42,9 +63,9 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
     const plan = getPricingPlan(data.plan);
     if (!isPaidPricingPlan(plan.id)) throw new Error("Cette formule ne nécessite pas de paiement.");
 
-    const apiKey = process.env.FAPSHI_API_KEY;
-    const apiUser = process.env.FAPSHI_API_USER;
-    const baseUrl = process.env.FAPSHI_API_URL ?? "https://live.fapshi.com";
+    const apiKey = cleanSecret(process.env.FAPSHI_API_KEY);
+    const apiUser = cleanSecret(process.env.FAPSHI_API_USER);
+    const baseUrl = getFapshiBaseUrl();
     if (!apiKey || !apiUser || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Le paiement n'est pas encore activé sur Loopster.");
     }
@@ -224,9 +245,9 @@ export const syncFapshiPaymentStatus = createServerFn({ method: "POST" })
     }
     if (!order.provider_reference) return order;
 
-    const apiKey = process.env.FAPSHI_API_KEY;
-    const apiUser = process.env.FAPSHI_API_USER;
-    const baseUrl = process.env.FAPSHI_API_URL ?? "https://live.fapshi.com";
+    const apiKey = cleanSecret(process.env.FAPSHI_API_KEY);
+    const apiUser = cleanSecret(process.env.FAPSHI_API_USER);
+    const baseUrl = getFapshiBaseUrl();
     if (!apiKey || !apiUser) throw new Error("Le paiement n'est pas encore activé sur Loopster.");
 
     const response = await fetch(

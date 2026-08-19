@@ -36,10 +36,12 @@ import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as AuthenticatedAdminEconomicsRouteImport } from './routes/_authenticated/admin.economics'
 import { Route as AuthenticatedEditorProjectIdRouteImport } from './routes/_authenticated/editor.$projectId'
 import { Route as AuthenticatedLibraryProjectIdRouteImport } from './routes/_authenticated/library.$projectId'
 import { Route as ApiInternalPublicationBackfillRouteImport } from './routes/api/internal/publication-backfill'
 import { Route as ApiPublicFapshiWebhookRouteImport } from './routes/api/public/fapshi-webhook'
+import { Route as ApiPublicMetaEventsRouteImport } from './routes/api/public/meta-events'
 import { Route as ApiPublicSunoCallbackRouteImport } from './routes/api/public/suno-callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -176,6 +178,12 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthenticatedAdminEconomicsRoute =
+  AuthenticatedAdminEconomicsRouteImport.update({
+    id: '/admin/economics',
+    path: '/admin/economics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEditorProjectIdRoute =
   AuthenticatedEditorProjectIdRouteImport.update({
     id: '/editor/$projectId',
@@ -197,6 +205,11 @@ const ApiInternalPublicationBackfillRoute =
 const ApiPublicFapshiWebhookRoute = ApiPublicFapshiWebhookRouteImport.update({
   id: '/api/public/fapshi-webhook',
   path: '/api/public/fapshi-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMetaEventsRoute = ApiPublicMetaEventsRouteImport.update({
+  id: '/api/public/meta-events',
+  path: '/api/public/meta-events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSunoCallbackRoute = ApiPublicSunoCallbackRouteImport.update({
@@ -232,10 +245,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/economics': typeof AuthenticatedAdminEconomicsRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
+  '/api/public/meta-events': typeof ApiPublicMetaEventsRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -265,10 +280,12 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/economics': typeof AuthenticatedAdminEconomicsRoute
   '/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
+  '/api/public/meta-events': typeof ApiPublicMetaEventsRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRoutesById {
@@ -300,10 +317,12 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/admin/economics': typeof AuthenticatedAdminEconomicsRoute
   '/_authenticated/editor/$projectId': typeof AuthenticatedEditorProjectIdRoute
   '/_authenticated/library/$projectId': typeof AuthenticatedLibraryProjectIdRoute
   '/api/internal/publication-backfill': typeof ApiInternalPublicationBackfillRoute
   '/api/public/fapshi-webhook': typeof ApiPublicFapshiWebhookRoute
+  '/api/public/meta-events': typeof ApiPublicMetaEventsRoute
   '/api/public/suno-callback': typeof ApiPublicSunoCallbackRoute
 }
 export interface FileRouteTypes {
@@ -335,10 +354,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/studio'
     | '/auth/callback'
+    | '/admin/economics'
     | '/editor/$projectId'
     | '/library/$projectId'
     | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
+    | '/api/public/meta-events'
     | '/api/public/suno-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -368,10 +389,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/studio'
     | '/auth/callback'
+    | '/admin/economics'
     | '/editor/$projectId'
     | '/library/$projectId'
     | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
+    | '/api/public/meta-events'
     | '/api/public/suno-callback'
   id:
     | '__root__'
@@ -402,10 +425,12 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/studio'
     | '/auth/callback'
+    | '/_authenticated/admin/economics'
     | '/_authenticated/editor/$projectId'
     | '/_authenticated/library/$projectId'
     | '/api/internal/publication-backfill'
     | '/api/public/fapshi-webhook'
+    | '/api/public/meta-events'
     | '/api/public/suno-callback'
   fileRoutesById: FileRoutesById
 }
@@ -432,6 +457,7 @@ export interface RootRouteChildren {
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiInternalPublicationBackfillRoute: typeof ApiInternalPublicationBackfillRoute
   ApiPublicFapshiWebhookRoute: typeof ApiPublicFapshiWebhookRoute
+  ApiPublicMetaEventsRoute: typeof ApiPublicMetaEventsRoute
   ApiPublicSunoCallbackRoute: typeof ApiPublicSunoCallbackRoute
 }
 
@@ -626,6 +652,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_authenticated/admin/economics': {
+      id: '/_authenticated/admin/economics'
+      path: '/admin/economics'
+      fullPath: '/admin/economics'
+      preLoaderRoute: typeof AuthenticatedAdminEconomicsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/editor/$projectId': {
       id: '/_authenticated/editor/$projectId'
       path: '/editor/$projectId'
@@ -652,6 +685,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/fapshi-webhook'
       fullPath: '/api/public/fapshi-webhook'
       preLoaderRoute: typeof ApiPublicFapshiWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/meta-events': {
+      id: '/api/public/meta-events'
+      path: '/api/public/meta-events'
+      fullPath: '/api/public/meta-events'
+      preLoaderRoute: typeof ApiPublicMetaEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/suno-callback': {
@@ -682,6 +722,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
+  AuthenticatedAdminEconomicsRoute: typeof AuthenticatedAdminEconomicsRoute
   AuthenticatedEditorProjectIdRoute: typeof AuthenticatedEditorProjectIdRoute
 }
 
@@ -692,6 +733,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
+  AuthenticatedAdminEconomicsRoute: AuthenticatedAdminEconomicsRoute,
   AuthenticatedEditorProjectIdRoute: AuthenticatedEditorProjectIdRoute,
 }
 
@@ -731,6 +773,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyEmailRoute: VerifyEmailRoute,
   ApiInternalPublicationBackfillRoute: ApiInternalPublicationBackfillRoute,
   ApiPublicFapshiWebhookRoute: ApiPublicFapshiWebhookRoute,
+  ApiPublicMetaEventsRoute: ApiPublicMetaEventsRoute,
   ApiPublicSunoCallbackRoute: ApiPublicSunoCallbackRoute,
 }
 export const routeTree = rootRouteImport

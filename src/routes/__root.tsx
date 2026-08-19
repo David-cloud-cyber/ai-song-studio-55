@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { MarketingConsentBanner } from "@/components/marketing/MarketingConsentBanner";
+import { MetaPixel } from "@/components/marketing/MetaPixel";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { AppShell } from "@/components/studio/AppShell";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
@@ -129,6 +131,8 @@ function RootComponent() {
           <Outlet />
         </AppShell>
         <Toaster theme="dark" position="top-center" />
+        <MetaPixel />
+        <MarketingConsentBanner />
       </SmoothScroll>
     </QueryClientProvider>
   );

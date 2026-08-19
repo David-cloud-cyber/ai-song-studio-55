@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { LoopsterLogo } from "@/components/branding/LoopsterLogo";
 import { supabase } from "@/integrations/supabase/client";
-import { trackEvent } from "@/lib/analytics";
+import { getMarketingAttribution, trackEvent } from "@/lib/analytics";
 import { buildAuthReturnUrl, getSafeAuthDestination } from "@/lib/auth-redirect";
 import { createFapshiCheckout } from "@/lib/payment.functions";
 import { cycleLabel, formatXaf, getPriceXaf, getPricingPlan } from "@/lib/pricing";
@@ -89,6 +89,12 @@ function AuthPage() {
             plan: selectedPlan.id as "pro" | "premier",
             cycle: selectedCycle,
             requestId: search.paymentRequestId ?? crypto.randomUUID(),
+            utmSource: getMarketingAttribution().utmSource as string | undefined,
+            utmMedium: getMarketingAttribution().utmMedium as string | undefined,
+            utmCampaign: getMarketingAttribution().utmCampaign as string | undefined,
+            utmContent: getMarketingAttribution().utmContent as string | undefined,
+            utmTerm: getMarketingAttribution().utmTerm as string | undefined,
+            fbclid: getMarketingAttribution().fbclid as string | undefined,
           },
         });
         window.location.assign(result.link);
@@ -105,7 +111,11 @@ function AuthPage() {
     if (selectedPlan) {
       navigate({
         to: "/credits",
-        search: { plan: selectedPlan.id as "pro" | "premier", cycle: selectedCycle },
+        search: {
+          plan: selectedPlan.id as "pro" | "premier",
+          cycle: selectedCycle,
+          paymentRequestId: search.paymentRequestId,
+        },
       });
     } else {
       navigate({ to: destination as "/library" });

@@ -3,8 +3,10 @@ import { timingSafeEqual } from "crypto";
 
 type FapshiEvent = {
   transId?: string;
+  externalId?: string;
   status?: string;
   amount?: number;
+  revenue?: number;
 };
 
 function safeEqual(a: string, b: string) {
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/api/public/fapshi-webhook")({
         const allowedStatuses = new Set(["CREATED", "PENDING", "SUCCESSFUL", "FAILED", "EXPIRED"]);
         if (
           !event.transId ||
+          !event.externalId ||
           !event.status ||
           !allowedStatuses.has(event.status) ||
           typeof event.amount !== "number" ||
@@ -48,9 +51,12 @@ export const Route = createFileRoute("/api/public/fapshi-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: activated, error } = await supabaseAdmin.rpc("activate_payment_order", {
           _provider_reference: event.transId,
+          _external_id: event.externalId,
           _provider_status: event.status as
             "CREATED" | "PENDING" | "SUCCESSFUL" | "FAILED" | "EXPIRED",
           _amount_xaf: event.amount,
+          _revenue_xaf: typeof event.revenue === "number" ? event.revenue : event.amount,
+          _payload: event,
         });
 
         if (error) return new Response("Unable to process payment", { status: 500 });

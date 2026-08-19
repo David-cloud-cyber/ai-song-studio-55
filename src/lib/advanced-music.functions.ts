@@ -102,6 +102,7 @@ async function startOperation(input: {
     };
 
   let reserved = false;
+  let taskId: string | null = null;
   try {
     if (input.credits > 0) {
       const { error } = await input.supabase.rpc("deduct_credits", {
@@ -113,12 +114,15 @@ async function startOperation(input: {
       reserved = true;
     }
     await updateJob(claim.job.id, { credits_spent: input.credits });
-    const taskId = await input.launch();
+    taskId = await input.launch();
     await updateJob(claim.job.id, { status: "processing", suno_task_id: taskId });
     return { taskId, jobId: claim.job.id, projectId: claim.job.project_id, existing: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Traitement impossible";
-    if (reserved) await refundJob(claim.job.id, `Remboursement · ${message}`);
+    // Once the provider has accepted a task, the callback/recovery path owns
+    // the final state. Refunding here could create a free operation while the
+    // provider continues processing it.
+    if (reserved && !taskId) await refundJob(claim.job.id, `Remboursement · ${message}`);
     await updateJob(claim.job.id, { status: "failed", error_message: message });
     throw error;
   }
@@ -175,7 +179,7 @@ export const separateStemsAdvanced = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         mode: z.enum(["vocals", "advanced", "full"]),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -200,7 +204,7 @@ export const separateStemsAdvanced = createServerFn({ method: "POST" })
       projectId: project.id,
       kind,
       credits,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: { sourceTaskId: project.suno_task_id, mode: data.mode },
       launch: async () => {
         const { createStemSeparation } = await import("@/lib/suno.server");
@@ -230,7 +234,7 @@ export const createMashupOperation = createServerFn({ method: "POST" })
         title: z.string().trim().min(1).max(120),
         prompt: z.string().trim().max(4000).optional(),
         model: z.enum(["V4_5", "V4_5PLUS", "V4_5ALL", "V5"]).default("V5"),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -251,7 +255,7 @@ export const createMashupOperation = createServerFn({ method: "POST" })
       projectId: project.id,
       kind: "mashup",
       credits: LOOPSTER_COSTS.mashup,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: { firstProjectId: first.id, secondProjectId: second.id, model: data.model },
       launch: async () => {
         const { createMashup } = await import("@/lib/suno.server");
@@ -296,7 +300,7 @@ export const createSoundEffect = createServerFn({ method: "POST" })
         duration: z.number().int().min(1).max(60).optional(),
         loop: z.boolean().default(false),
         bpm: z.number().int().min(40).max(240).optional(),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -321,7 +325,7 @@ export const createSoundEffect = createServerFn({ method: "POST" })
       projectId: project.id,
       kind: "sound",
       credits: LOOPSTER_COSTS.effects,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: { prompt: data.prompt, duration: data.duration ?? null, loop: data.loop },
       launch: async () => {
         const { createSound } = await import("@/lib/suno.server");
@@ -354,7 +358,7 @@ export const createPersonaOperation = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         name: z.string().trim().min(2).max(80),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -380,7 +384,7 @@ export const createPersonaOperation = createServerFn({ method: "POST" })
       projectId: project.id,
       kind: "persona",
       credits: LOOPSTER_COSTS.persona,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: { personaId: persona.id, sourceTaskId: project.suno_task_id },
       launch: async () => {
         const { createPersona } = await import("@/lib/suno.server");
@@ -420,7 +424,7 @@ export const prepareVoiceValidation = createServerFn({ method: "POST" })
         vocalEndS: z.number().min(0).max(600),
         language: z.string().length(2).default("fr"),
         consent: z.literal(true),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .refine((value) => value.vocalEndS > value.vocalStartS, "Le segment vocal est invalide.")
       .parse(input),
@@ -445,7 +449,7 @@ export const prepareVoiceValidation = createServerFn({ method: "POST" })
       projectId: null,
       kind: "voice-validation",
       credits: 0,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: { voiceProfileId: profile.id, sourceAssetPath: data.sourceAssetPath },
       launch: async () => {
         const { createVoiceValidation } = await import("@/lib/suno.server");
@@ -483,7 +487,7 @@ export const createVoiceProfileOperation = createServerFn({ method: "POST" })
           .enum(["beginner", "intermediate", "advanced", "professional"])
           .default("beginner"),
         consent: z.literal(true),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -526,7 +530,7 @@ export const createVoiceProfileOperation = createServerFn({ method: "POST" })
       projectId: null,
       kind: "voice-profile",
       credits: LOOPSTER_COSTS.voiceProfile,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: {
         voiceProfileId: profileId,
         sourceAssetPath: data.sourceAssetPath,
@@ -558,7 +562,7 @@ export const replaceProjectSection = createServerFn({ method: "POST" })
         prompt: z.string().trim().min(3).max(4000),
         sectionStart: z.number().min(0).max(900),
         sectionEnd: z.number().min(0).max(900),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .refine((value) => value.sectionEnd > value.sectionStart, "La fin doit être après le début.")
       .parse(input),
@@ -581,7 +585,7 @@ export const replaceProjectSection = createServerFn({ method: "POST" })
       projectId: child.id,
       kind: "replace-section",
       credits: LOOPSTER_COSTS.replaceSection,
-      idempotencyKey: data.requestId ?? crypto.randomUUID(),
+      idempotencyKey: data.requestId,
       payload: {
         parentProjectId: parent.id,
         sectionStart: data.sectionStart,

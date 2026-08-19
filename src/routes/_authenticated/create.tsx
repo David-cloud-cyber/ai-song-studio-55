@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FreePublicationNotice } from "@/components/studio/FreePublicationNotice";
+import { trackEvent } from "@/lib/analytics";
 
 const GRADIENTS = [
   "from-cyan-400 via-blue-600 to-fuchsia-700",
@@ -298,6 +299,11 @@ function CreatePage() {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["credit-transactions"] });
+      trackEvent("first_generation_started", {
+        project_id: res.projectId,
+        plan: profile?.plan ?? "free",
+        credits: res.creditsSpent,
+      });
 
       toast.success("C'est parti, ça compose !", {
         description: `${res.creditsSpent} crédits utilisés · ton morceau arrive bientôt.`,

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,8 +20,8 @@ import {
   type BillingCycle,
   type PricingPlanId,
 } from "@/lib/pricing";
-import { createFapshiCheckout } from "@/lib/payment.functions";
-import { trackEvent } from "@/lib/analytics";
+import { createFapshiCheckout, syncFapshiPaymentStatus } from "@/lib/payment.functions";
+import { getMarketingAttribution, trackEvent } from "@/lib/analytics";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -29,6 +29,7 @@ const searchSchema = z.object({
   cycle: z.enum(["monthly", "yearly"]).optional(),
   payment: z.enum(["return"]).optional(),
   orderId: z.string().uuid().optional(),
+  paymentRequestId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/credits")({
@@ -57,6 +58,7 @@ function CreditsPage() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
   const startCheckout = useServerFn(createFapshiCheckout);
+  const syncPaymentStatus = useServerFn(syncFapshiPaymentStatus);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentStage, setPaymentStage] = useState<"idle" | "preparing" | "redirecting">("idle");
   const credits = profile?.credits ?? 0;
@@ -67,6 +69,8 @@ function CreditsPage() {
   const selectedPlan = search.plan ? getPricingPlan(search.plan) : null;
   const selectedCycle: BillingCycle = search.cycle ?? "monthly";
   const [paymentPolling, setPaymentPolling] = useState(search.payment === "return");
+  const paymentSyncRef = useRef<string | null>(null);
+  const trackedPaymentRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (selectedPlan) {
@@ -83,17 +87,16 @@ function CreditsPage() {
 
   const { data: paymentOrder } = useQuery({
     queryKey: ["payment-order", user?.id, search.orderId],
-    enabled: Boolean(user && search.payment === "return"),
+    enabled: Boolean(user && search.payment === "return" && search.orderId),
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from("payment_orders")
-        .select("id,plan,cycle,amount_xaf,status,provider_status,expires_at,created_at")
-        .eq("user_id", user!.id);
-      if (search.orderId) query = query.eq("id", search.orderId);
-      const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select(
+          "id,plan,cycle,amount_xaf,status,provider_status,provider_reference,expires_at,created_at",
+        )
+        .eq("user_id", user!.id)
+        .eq("id", search.orderId!);
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -103,15 +106,55 @@ function CreditsPage() {
     },
   });
 
-  const paymentExpired = paymentOrder?.provider_status === "EXPIRED";
+  const paymentExpired =
+    paymentOrder?.status === "expired" || paymentOrder?.provider_status === "EXPIRED";
 
   useEffect(() => {
-    if (paymentOrder?.status === "paid") {
+    if (
+      !search.orderId ||
+      search.payment !== "return" ||
+      !paymentOrder ||
+      paymentOrder.status !== "pending" ||
+      paymentSyncRef.current === search.orderId
+    ) {
+      return;
+    }
+    paymentSyncRef.current = search.orderId;
+    void syncPaymentStatus({ data: { orderId: search.orderId } })
+      .catch(() => undefined)
+      .finally(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["payment-order", user?.id, search.orderId],
+        });
+      });
+  }, [paymentOrder, queryClient, search.orderId, search.payment, syncPaymentStatus, user?.id]);
+
+  useEffect(() => {
+    if (paymentOrder?.status === "paid" && trackedPaymentRef.current !== paymentOrder.id) {
+      trackedPaymentRef.current = paymentOrder.id;
       setPaymentPolling(false);
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
-      trackEvent("payment_success", { plan: paymentOrder.plan, cycle: paymentOrder.cycle });
+      trackEvent("payment_success", {
+        plan: paymentOrder.plan,
+        cycle: paymentOrder.cycle,
+        amount_xaf: paymentOrder.amount_xaf,
+        currency: "XAF",
+        order_id: paymentOrder.id,
+      });
+      trackEvent("purchase", {
+        plan: paymentOrder.plan,
+        cycle: paymentOrder.cycle,
+        amount_xaf: paymentOrder.amount_xaf,
+        currency: "XAF",
+        order_id: paymentOrder.id,
+      });
+      trackEvent("subscription_activated", {
+        plan: paymentOrder.plan,
+        cycle: paymentOrder.cycle,
+        order_id: paymentOrder.id,
+      });
     }
-    if (paymentOrder?.status === "failed") {
+    if (paymentOrder?.status === "failed" || paymentOrder?.status === "expired") {
       setPaymentPolling(false);
       trackEvent("payment_failed", { plan: paymentOrder.plan, cycle: paymentOrder.cycle });
     }
@@ -141,7 +184,13 @@ function CreditsPage() {
         data: {
           plan: selectedPlan.id,
           cycle: selectedCycle,
-          requestId: crypto.randomUUID(),
+          requestId: search.paymentRequestId ?? crypto.randomUUID(),
+          utmSource: getMarketingAttribution().utmSource as string | undefined,
+          utmMedium: getMarketingAttribution().utmMedium as string | undefined,
+          utmCampaign: getMarketingAttribution().utmCampaign as string | undefined,
+          utmContent: getMarketingAttribution().utmContent as string | undefined,
+          utmTerm: getMarketingAttribution().utmTerm as string | undefined,
+          fbclid: getMarketingAttribution().fbclid as string | undefined,
         },
       });
       setPaymentStage("redirecting");

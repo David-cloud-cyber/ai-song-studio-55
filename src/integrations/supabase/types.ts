@@ -221,6 +221,16 @@ export type Database = {
           cycle: string;
           amount_xaf: number;
           credits_granted: number;
+          external_id: string;
+          revenue_xaf: number | null;
+          fee_xaf: number | null;
+          provider_payload: Json | null;
+          utm_source: string | null;
+          utm_medium: string | null;
+          utm_campaign: string | null;
+          utm_content: string | null;
+          utm_term: string | null;
+          fbclid: string | null;
           provider: string;
           provider_reference: string | null;
           idempotency_key: string;
@@ -240,6 +250,16 @@ export type Database = {
           cycle: string;
           amount_xaf: number;
           credits_granted: number;
+          external_id: string;
+          revenue_xaf?: number | null;
+          fee_xaf?: number | null;
+          provider_payload?: Json | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_term?: string | null;
+          fbclid?: string | null;
           provider?: string;
           provider_reference?: string | null;
           idempotency_key: string;
@@ -259,6 +279,16 @@ export type Database = {
           cycle?: string;
           amount_xaf?: number;
           credits_granted?: number;
+          external_id?: string;
+          revenue_xaf?: number | null;
+          fee_xaf?: number | null;
+          provider_payload?: Json | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_term?: string | null;
+          fbclid?: string | null;
           provider?: string;
           provider_reference?: string | null;
           idempotency_key?: string;
@@ -270,6 +300,42 @@ export type Database = {
           updated_at?: string;
           activated_at?: string | null;
           expires_at?: string | null;
+        };
+        Relationships: [];
+      };
+      ad_spend_entries: {
+        Row: {
+          id: string;
+          period_start: string;
+          period_end: string;
+          campaign: string;
+          amount_xaf: number;
+          source: string;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          period_start: string;
+          period_end: string;
+          campaign: string;
+          amount_xaf: number;
+          source?: string;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          period_start?: string;
+          period_end?: string;
+          campaign?: string;
+          amount_xaf?: number;
+          source?: string;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -841,7 +907,14 @@ export type Database = {
         Returns: Json;
       };
       activate_payment_order: {
-        Args: { _amount_xaf: number; _provider_reference: string; _provider_status: string };
+        Args: {
+          _amount_xaf: number;
+          _external_id: string;
+          _payload?: Json;
+          _provider_reference: string;
+          _provider_status: string;
+          _revenue_xaf?: number;
+        };
         Returns: boolean;
       };
       deduct_credits: {

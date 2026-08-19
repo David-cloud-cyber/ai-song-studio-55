@@ -3,11 +3,18 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPriceXaf, getPricingPlan, isPaidPricingPlan } from "@/lib/pricing";
+import type { Json } from "@/integrations/supabase/types";
 
 const paymentInput = z.object({
   plan: z.enum(["pro", "premier"]),
   cycle: z.enum(["monthly", "yearly"]),
   requestId: z.string().uuid(),
+  utmSource: z.string().trim().max(120).optional(),
+  utmMedium: z.string().trim().max(120).optional(),
+  utmCampaign: z.string().trim().max(160).optional(),
+  utmContent: z.string().trim().max(160).optional(),
+  utmTerm: z.string().trim().max(160).optional(),
+  fbclid: z.string().trim().max(240).optional(),
 });
 
 type PaymentResponse = { link: string; transId: string; orderId: string };
@@ -53,7 +60,7 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
     let { data: order, error: orderError } = await supabaseAdmin
       .from("payment_orders")
       .select(
-        "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at",
+        "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at,external_id",
       )
       .eq("user_id", userId)
       .eq("idempotency_key", data.requestId)
@@ -86,9 +93,11 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
     }
 
     if (!order) {
+      const newOrderId = crypto.randomUUID();
       const inserted = await supabaseAdmin
         .from("payment_orders")
         .insert({
+          id: newOrderId,
           user_id: userId,
           plan: data.plan,
           cycle: data.cycle,
@@ -96,17 +105,18 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
           credits_granted: plan.credits,
           provider: "fapshi",
           idempotency_key: data.requestId,
+          external_id: newOrderId,
           status: "pending",
         })
         .select(
-          "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at",
+          "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at,external_id",
         )
         .single();
       if (inserted.error?.code === "23505") {
         const existing = await supabaseAdmin
           .from("payment_orders")
           .select(
-            "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at",
+            "id,plan,cycle,amount_xaf,credits_granted,status,provider_reference,provider_link,provider_link_expires_at,external_id",
           )
           .eq("user_id", userId)
           .eq("idempotency_key", data.requestId)
@@ -130,6 +140,13 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
         provider_reference: null,
         provider_link: null,
         provider_link_expires_at: null,
+        external_id: order.external_id ?? order.id,
+        utm_source: data.utmSource ?? null,
+        utm_medium: data.utmMedium ?? null,
+        utm_campaign: data.utmCampaign ?? null,
+        utm_content: data.utmContent ?? null,
+        utm_term: data.utmTerm ?? null,
+        fbclid: data.fbclid ?? null,
       })
       .eq("id", order.id);
     if (resetError) throw resetError;
@@ -146,7 +163,7 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
         email,
         redirectUrl: `${origin}/credits?plan=${data.plan}&cycle=${data.cycle}&payment=return&orderId=${order.id}`,
         userId,
-        externalId: order.id,
+        externalId: order.external_id ?? order.id,
         message: `Loopster ${plan.name} · ${data.cycle === "yearly" ? "12 mois" : "30 jours"}`,
       }),
     });
@@ -176,4 +193,63 @@ export const createFapshiCheckout = createServerFn({ method: "POST" })
     if (saveError) throw saveError;
 
     return { link: body.link, transId: body.transId, orderId: order.id };
+  });
+
+type FapshiStatusResponse = {
+  transId?: string;
+  externalId?: string;
+  status?: string;
+  amount?: number;
+  revenue?: number;
+  [key: string]: unknown;
+};
+
+/** Reconciles a hosted checkout return if the Fapshi webhook is delayed. */
+export const syncFapshiPaymentStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order, error } = await supabaseAdmin
+      .from("payment_orders")
+      .select("id,user_id,provider_reference,external_id,status,amount_xaf")
+      .eq("id", data.orderId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!order) throw new Error("Commande de paiement introuvable.");
+    if (order.status === "paid" || order.status === "failed" || order.status === "expired") {
+      return order;
+    }
+    if (!order.provider_reference) return order;
+
+    const apiKey = process.env.FAPSHI_API_KEY;
+    const apiUser = process.env.FAPSHI_API_USER;
+    const baseUrl = process.env.FAPSHI_API_URL ?? "https://live.fapshi.com";
+    if (!apiKey || !apiUser) throw new Error("Le paiement n'est pas encore activé sur Loopster.");
+
+    const response = await fetch(
+      `${baseUrl.replace(/\/$/, "")}/payment-status/${encodeURIComponent(order.provider_reference)}`,
+      { headers: { apikey: apiKey, apiuser: apiUser } },
+    );
+    const body = (await response.json().catch(() => ({}))) as FapshiStatusResponse;
+    if (!response.ok || !body.status || typeof body.amount !== "number") return order;
+
+    await supabaseAdmin.rpc("activate_payment_order", {
+      _provider_reference: order.provider_reference,
+      _external_id: body.externalId ?? order.external_id,
+      _provider_status: body.status,
+      _amount_xaf: body.amount,
+      _revenue_xaf: typeof body.revenue === "number" ? body.revenue : body.amount,
+      _payload: body as unknown as Json,
+    });
+
+    const { data: refreshed, error: refreshError } = await supabaseAdmin
+      .from("payment_orders")
+      .select("id,user_id,provider_reference,external_id,status,amount_xaf,plan,cycle,expires_at")
+      .eq("id", data.orderId)
+      .single();
+    if (refreshError) throw refreshError;
+    return refreshed;
   });

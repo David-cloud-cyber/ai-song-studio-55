@@ -12,7 +12,7 @@ import {
   getPriceXaf,
   type BillingCycle,
 } from "@/lib/pricing";
-import { trackEvent } from "@/lib/analytics";
+import { getMarketingAttribution, trackEvent } from "@/lib/analytics";
 import { createFapshiCheckout } from "@/lib/payment.functions";
 import { buildAuthReturnUrl } from "@/lib/auth-redirect";
 
@@ -126,7 +126,17 @@ function PricingCard({
     trackEvent("payment_started", { plan: plan.id, cycle });
     try {
       const result = await startCheckout({
-        data: { plan: plan.id, cycle, requestId },
+        data: {
+          plan: plan.id,
+          cycle,
+          requestId,
+          utmSource: getMarketingAttribution().utmSource as string | undefined,
+          utmMedium: getMarketingAttribution().utmMedium as string | undefined,
+          utmCampaign: getMarketingAttribution().utmCampaign as string | undefined,
+          utmContent: getMarketingAttribution().utmContent as string | undefined,
+          utmTerm: getMarketingAttribution().utmTerm as string | undefined,
+          fbclid: getMarketingAttribution().fbclid as string | undefined,
+        },
       });
       window.location.assign(result.link);
     } catch (error) {

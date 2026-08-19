@@ -255,14 +255,14 @@ export const generateTrack = createServerFn({ method: "POST" })
         durationSeconds: z.number().int().min(30).max(360).optional(),
         coverGradient: z.string().max(200).optional(),
         parentProjectId: z.string().uuid().optional(),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const cost = data.instrumental ? COSTS.instrumental : COSTS.song;
-    const idempotencyKey = data.requestId ?? crypto.randomUUID();
+    const idempotencyKey = data.requestId;
 
     await assertCredits(supabase, userId, cost);
     const publicationPolicy = await getPublicationPolicy(supabase, userId);
@@ -432,7 +432,7 @@ export const extendTrack = createServerFn({ method: "POST" })
         projectId: z.string().uuid(),
         continueAt: z.number().min(0).max(600).optional(),
         prompt: z.string().trim().max(4000).optional(),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -452,7 +452,7 @@ export const extendTrack = createServerFn({ method: "POST" })
     const publicationPolicy = await getPublicationPolicy(supabase, userId);
 
     const title = `${parent.title} (extension)`;
-    const idempotencyKey = data.requestId ?? crypto.randomUUID();
+    const idempotencyKey = data.requestId;
     const { data: child, error: insertError } = await supabase
       .from("projects")
       .insert({
@@ -545,9 +545,7 @@ export const extendTrack = createServerFn({ method: "POST" })
 export const separateStems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
-      .parse(input),
+    z.object({ projectId: z.string().uuid(), requestId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -568,7 +566,7 @@ export const separateStems = createServerFn({ method: "POST" })
       userId,
       project.id,
       "stems",
-      data.requestId ?? crypto.randomUUID(),
+      data.requestId,
       PROVIDER_COST_BY_JOB_KIND.stems,
       { sourceTaskId: project.suno_task_id },
     );
@@ -627,7 +625,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         prompt: z.string().trim().min(3).max(4000),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -643,7 +641,7 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter une voix.");
     await assertCredits(supabase, userId, COSTS.vocals);
     const publicationPolicy = await getPublicationPolicy(supabase, userId);
-    const idempotencyKey = data.requestId ?? crypto.randomUUID();
+    const idempotencyKey = data.requestId;
 
     const { data: child, error: insertError } = await supabase
       .from("projects")
@@ -752,7 +750,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
         model: z.enum(MODELS).default("V4_5"),
         coverGradient: z.string().max(200).optional(),
         parentProjectId: z.string().uuid().optional(),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -785,7 +783,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
       .single();
     if (insertError) throw insertError;
 
-    const idempotencyKey = data.requestId ?? crypto.randomUUID();
+    const idempotencyKey = data.requestId;
     const providerKind = data.instrumental ? "instrumental" : "upload-cover";
     const claim = await claimGenerationJob(
       supabase,
@@ -858,9 +856,7 @@ export const generateUploadedTrack = createServerFn({ method: "POST" })
 export const addInstrumentalToProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
-      .parse(input),
+    z.object({ projectId: z.string().uuid(), requestId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -874,7 +870,7 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
       throw new Error("Ce projet doit disposer d'un audio avant d'ajouter un instrumental.");
     await assertCredits(supabase, userId, COSTS.addInstrumental);
     const publicationPolicy = await getPublicationPolicy(supabase, userId);
-    const idempotencyKey = data.requestId ?? crypto.randomUUID();
+    const idempotencyKey = data.requestId;
 
     const { data: child, error: insertError } = await supabase
       .from("projects")
@@ -975,7 +971,7 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().uuid(),
         prompt: z.string().trim().min(3).max(2000),
-        requestId: z.string().uuid().optional(),
+        requestId: z.string().uuid(),
       })
       .parse(input),
   )
@@ -994,7 +990,7 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
       userId,
       project.id,
       "lyrics",
-      data.requestId ?? crypto.randomUUID(),
+      data.requestId,
       PROVIDER_COST_BY_JOB_KIND.lyrics,
       { prompt: data.prompt },
     );
@@ -1046,9 +1042,7 @@ export const generateProjectLyrics = createServerFn({ method: "POST" })
 export const convertProjectToWav = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
-      .parse(input),
+    z.object({ projectId: z.string().uuid(), requestId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -1067,7 +1061,7 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
       userId,
       project.id,
       "wav",
-      data.requestId ?? crypto.randomUUID(),
+      data.requestId,
       PROVIDER_COST_BY_JOB_KIND.wav,
       { sourceTaskId: project.suno_task_id },
     );
@@ -1117,9 +1111,7 @@ export const convertProjectToWav = createServerFn({ method: "POST" })
 export const createProjectVideo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
-      .parse(input),
+    z.object({ projectId: z.string().uuid(), requestId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -1138,7 +1130,7 @@ export const createProjectVideo = createServerFn({ method: "POST" })
       userId,
       project.id,
       "video",
-      data.requestId ?? crypto.randomUUID(),
+      data.requestId,
       PROVIDER_COST_BY_JOB_KIND.video,
       { sourceTaskId: project.suno_task_id },
     );
@@ -1189,9 +1181,7 @@ export const createProjectVideo = createServerFn({ method: "POST" })
 export const createProjectCover = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), requestId: z.string().uuid().optional() })
-      .parse(input),
+    z.object({ projectId: z.string().uuid(), requestId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -1215,7 +1205,7 @@ export const createProjectCover = createServerFn({ method: "POST" })
       userId,
       project.id,
       "cover",
-      data.requestId ?? crypto.randomUUID(),
+      data.requestId,
       PROVIDER_COST_BY_JOB_KIND.cover,
       { sourceTaskId: project.suno_task_id },
     );
@@ -1292,6 +1282,7 @@ export const syncProject = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { persistGeneratedAsset } = await import("@/lib/persist-generated-asset.server");
     let changed = false;
+    let nextStatus = project.status;
 
     if (project.status === "rendering") {
       const info = await getTaskInfo(project.suno_task_id);
@@ -1308,6 +1299,7 @@ export const syncProject = createServerFn({ method: "POST" })
             error_message: message,
           })
           .eq("id", project.id);
+        nextStatus = "draft";
         changed = true;
       } else if (clip?.audioUrl) {
         const durableAudioPath = await persistGeneratedAsset(
@@ -1370,6 +1362,7 @@ export const syncProject = createServerFn({ method: "POST" })
             error_message: null,
           })
           .eq("id", project.id);
+        nextStatus = "ready";
         try {
           const { autoPublishFreeProject } = await import("@/lib/publication.server");
           await autoPublishFreeProject(supabaseAdmin, project.id);
@@ -1441,7 +1434,7 @@ export const syncProject = createServerFn({ method: "POST" })
       }
     }
 
-    return { changed, status: project.status };
+    return { changed, status: nextStatus };
   });
 
 /** Récupère les créations restées bloquées sans réponse du fournisseur. */

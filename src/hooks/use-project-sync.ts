@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { syncProject } from "@/lib/suno.functions";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * Interroge Suno toutes les 6s tant que le projet est en cours de rendu
@@ -22,6 +23,13 @@ export function useProjectSync(projectId: string | undefined, active: boolean) {
       try {
         const res = await sync({ data: { projectId } });
         if (!cancelled && res?.changed) {
+          if (res.status === "ready" && typeof window !== "undefined") {
+            const eventKey = `loopster:first-generation-success:${projectId}`;
+            if (!window.sessionStorage.getItem(eventKey)) {
+              window.sessionStorage.setItem(eventKey, "1");
+              trackEvent("first_generation_success", { project_id: projectId });
+            }
+          }
           queryClient.invalidateQueries({ queryKey: ["project", projectId] });
           queryClient.invalidateQueries({ queryKey: ["editor-project", projectId] });
           queryClient.invalidateQueries({ queryKey: ["generation-jobs", projectId] });

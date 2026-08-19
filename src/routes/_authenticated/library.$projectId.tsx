@@ -450,6 +450,15 @@ function ProjectDetail() {
           .update({ archived_at: null })
           .eq("id", project.id);
         error = result.error;
+        if (!error && !canDownload && project.publication_policy === "automatic_free") {
+          try {
+            await runVisibility({ data: { projectId: project.id, isPublic: true } });
+          } catch {
+            toast.info("Projet restauré", {
+              description: "Sa publication reprendra automatiquement dès que le fichier sera prêt.",
+            });
+          }
+        }
       }
     } catch (caught) {
       error = caught;

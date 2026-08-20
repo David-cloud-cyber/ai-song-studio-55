@@ -8,8 +8,10 @@ function matchesToken(received: string, expected: string) {
 }
 
 type BackfillRequest = {
+  mode?: "publication" | "provider-covers";
   cutoff?: string;
   limit?: number;
+  retryFailed?: boolean;
 };
 
 export const Route = createFileRoute("/api/internal/publication-backfill")({
@@ -29,6 +31,56 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
           // Un body vide utilise les valeurs par défaut contrôlées côté serveur.
         }
 
+        const limit = Math.min(Math.max(Math.trunc(body.limit ?? 100), 1), 250);
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        if (body.mode === "provider-covers") {
+          const { syncProviderCoverForProject } = await import("@/lib/provider-cover.server");
+          let query = supabaseAdmin
+            .from("projects")
+            .select(
+              "id,user_id,title,status,archived_at,image_path,image_url,cover_url,cover_source,provider_cover_status,provider_cover_attempts,suno_task_id,is_public,publication_status,public_image_url",
+            )
+            .order("created_at", { ascending: true })
+            .limit(limit);
+          query = body.retryFailed
+            ? query.in("provider_cover_status", ["pending", "failed"])
+            : query.eq("provider_cover_status", "pending");
+
+          const { data: projects, error } = await query;
+          if (error) throw error;
+
+          const report = {
+            mode: "provider-covers" as const,
+            scanned: projects?.length ?? 0,
+            synced: 0,
+            alreadySynced: 0,
+            pending: 0,
+            unavailable: 0,
+            failed: 0,
+            publicRefreshed: 0,
+            details: [] as Array<{ projectId: string; status: string; reason?: string }>,
+            hasMore: (projects?.length ?? 0) === limit,
+          };
+
+          for (const project of projects ?? []) {
+            const result = await syncProviderCoverForProject(supabaseAdmin, project);
+            if (result.status === "synced") report.synced += 1;
+            else if (result.status === "already_synced") report.alreadySynced += 1;
+            else if (result.status === "pending") report.pending += 1;
+            else if (result.status === "unavailable") report.unavailable += 1;
+            else report.failed += 1;
+            if (result.publicRefreshed) report.publicRefreshed += 1;
+            report.details.push({
+              projectId: result.projectId,
+              status: result.status,
+              ...(result.reason ? { reason: result.reason } : {}),
+            });
+          }
+
+          return Response.json(report);
+        }
+
         const cutoff =
           body.cutoff ?? process.env.PUBLICATION_BACKFILL_CUTOFF ?? "2026-08-19T00:00:00.000Z";
         const cutoffTime = Date.parse(cutoff);
@@ -36,8 +88,6 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
           return Response.json({ error: "Date de migration invalide." }, { status: 400 });
         }
 
-        const limit = Math.min(Math.max(Math.trunc(body.limit ?? 100), 1), 250);
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { publishProjectAssets } = await import("@/lib/publication.server");
         const { ensureProjectCover } = await import("@/lib/default-cover.server");
         const { data: projects, error } = await supabaseAdmin

@@ -12,6 +12,7 @@ export type SunoClip = {
   audioUrl?: string | null;
   streamAudioUrl?: string | null;
   imageUrl?: string | null;
+  image_url?: string | null;
   prompt?: string | null;
   modelName?: string | null;
   title?: string | null;

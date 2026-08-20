@@ -385,6 +385,10 @@ export type Database = {
           cover_source: string;
           cover_generation_status: string;
           cover_error: string | null;
+          provider_cover_status: string;
+          provider_cover_attempts: number;
+          provider_cover_last_attempt_at: string | null;
+          provider_cover_error: string | null;
           cover_url: string | null;
           created_at: string;
           duration_seconds: number | null;
@@ -439,6 +443,10 @@ export type Database = {
           cover_source?: string;
           cover_generation_status?: string;
           cover_error?: string | null;
+          provider_cover_status?: string;
+          provider_cover_attempts?: number;
+          provider_cover_last_attempt_at?: string | null;
+          provider_cover_error?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;
@@ -493,6 +501,10 @@ export type Database = {
           cover_source?: string;
           cover_generation_status?: string;
           cover_error?: string | null;
+          provider_cover_status?: string;
+          provider_cover_attempts?: number;
+          provider_cover_last_attempt_at?: string | null;
+          provider_cover_error?: string | null;
           cover_url?: string | null;
           created_at?: string;
           duration_seconds?: number | null;
@@ -547,6 +559,33 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      project_cover_versions: {
+        Row: {
+          id: string;
+          project_id: string;
+          storage_path: string;
+          source: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          storage_path: string;
+          source: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          storage_path?: string;
+          source?: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       project_versions: {
         Row: {

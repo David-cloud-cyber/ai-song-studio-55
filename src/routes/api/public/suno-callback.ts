@@ -602,8 +602,12 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                 cover_source: "ai",
                 cover_generation_status: "ready",
                 cover_error: null,
+                provider_cover_status: "pending",
+                provider_cover_error: null,
               })
               .eq("id", job.project_id);
+            const { registerActiveCoverVersion } = await import("@/lib/provider-cover.server");
+            await registerActiveCoverVersion(supabaseAdmin, job.project_id, durableCoverPath, "ai");
             if (
               previousProject?.is_public ||
               previousProject?.publication_policy === "automatic_free"
@@ -725,6 +729,10 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               cover_source: coverSource,
               cover_generation_status: "ready",
               cover_error: null,
+              provider_cover_status: providerImagePath ? "synced" : "pending",
+              provider_cover_attempts: 0,
+              provider_cover_last_attempt_at: null,
+              provider_cover_error: providerImagePath ? null : "Pochette fournisseur à récupérer.",
               public_audio_url: null,
               public_image_url: null,
               is_public: false,
@@ -737,6 +745,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               error_message: null,
             })
             .eq("suno_task_id", taskId);
+          const { registerActiveCoverVersion } = await import("@/lib/provider-cover.server");
+          await registerActiveCoverVersion(
+            supabaseAdmin,
+            job.project_id,
+            durableImagePath,
+            coverSource,
+          );
           try {
             const { autoPublishFreeProject } = await import("@/lib/publication.server");
             await autoPublishFreeProject(supabaseAdmin, job.project_id);

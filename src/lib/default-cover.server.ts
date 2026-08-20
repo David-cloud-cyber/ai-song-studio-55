@@ -13,6 +13,7 @@ type CoverProject = {
   image_path?: string | null;
   image_url?: string | null;
   cover_url?: string | null;
+  provider_cover_status?: string | null;
 };
 
 function escapeXml(value: string) {
@@ -88,6 +89,8 @@ export async function ensureProjectCover(supabaseAdmin: AdminClient, project: Co
           cover_source: "provider",
           cover_generation_status: "ready",
           cover_error: null,
+          provider_cover_status: "synced",
+          provider_cover_error: null,
         })
         .eq("id", project.id);
       return { path, source: "provider" as const };
@@ -114,6 +117,8 @@ export async function ensureProjectCover(supabaseAdmin: AdminClient, project: Co
       cover_source: "default",
       cover_generation_status: "ready",
       cover_error: null,
+      provider_cover_status: "pending",
+      provider_cover_error: null,
     })
     .eq("id", project.id);
   if (updateError) throw updateError;

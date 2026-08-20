@@ -79,6 +79,13 @@ export const Route = createFileRoute("/api/public/suno-callback")({
         }
 
         const callbackData = body.data && typeof body.data === "object" ? body.data : null;
+        const callbackType =
+          callbackData && typeof callbackData.callbackType === "string"
+            ? callbackData.callbackType
+            : null;
+        // Suno peut envoyer plusieurs étapes pour une même tâche. Une étape
+        // intermédiaire ne doit ni rembourser ni clôturer le job prématurément.
+        const isFinalCallback = !callbackType || callbackType === "complete";
         // Suno retourne normalement l'identifiant dans `data`, mais certains
         // traitements (notamment les paroles) peuvent le placer au niveau
         // racine. Une recherche récursive évite de laisser un job bloqué.
@@ -244,6 +251,15 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .from("generation_jobs")
               .update({ status: "completed", result: { lyrics } })
               .eq("id", job.id);
+          } else if (isFinalCallback) {
+            await refundFailedJob();
+            await supabaseAdmin
+              .from("generation_jobs")
+              .update({
+                status: "failed",
+                error_message: body.msg ?? "Les paroles sont introuvables",
+              })
+              .eq("id", job.id);
           }
           return new Response("ok");
         }
@@ -282,6 +298,15 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .from("generation_jobs")
               .update({ status: "completed", result: { wavPath: durableWavPath } })
               .eq("id", job.id);
+          } else if (isFinalCallback) {
+            await refundFailedJob();
+            await supabaseAdmin
+              .from("generation_jobs")
+              .update({
+                status: "failed",
+                error_message: body.msg ?? "Le fichier WAV est introuvable",
+              })
+              .eq("id", job.id);
           }
           return new Response("ok");
         }
@@ -316,6 +341,12 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             await supabaseAdmin
               .from("generation_jobs")
               .update({ status: "completed", result: { videoPath: durableVideoPath } })
+              .eq("id", job.id);
+          } else if (isFinalCallback) {
+            await refundFailedJob();
+            await supabaseAdmin
+              .from("generation_jobs")
+              .update({ status: "failed", error_message: body.msg ?? "La vidéo est introuvable" })
               .eq("id", job.id);
           }
           return new Response("ok");
@@ -362,6 +393,24 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             !brassUrl &&
             !woodwindsUrl
           ) {
+            if (isFinalCallback && job) {
+              await refundFailedJob();
+              await supabaseAdmin
+                .from("generation_jobs")
+                .update({
+                  status: "failed",
+                  error_message: body.msg ?? "Les pistes séparées sont introuvables",
+                })
+                .eq("id", job.id);
+              if (job.project_id) {
+                await supabaseAdmin
+                  .from("projects")
+                  .update({
+                    stems: { taskId, status: "failed", error: body.msg ?? "Pistes introuvables" },
+                  })
+                  .eq("id", job.project_id);
+              }
+            }
             return new Response("ok");
           }
           const durableOriginUrl = await persistGeneratedAsset(
@@ -571,22 +620,24 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .update({ status: "completed", result: { coverPath: durableCoverPath } })
               .eq("id", job.id);
           } else {
-            await refundFailedJob();
-            await supabaseAdmin
-              .from("generation_jobs")
-              .update({
-                status: "failed",
-                error_message: body.msg ?? "La pochette est introuvable",
-              })
-              .eq("id", job.id);
-            if (job.project_id) {
+            if (isFinalCallback) {
+              await refundFailedJob();
               await supabaseAdmin
-                .from("projects")
+                .from("generation_jobs")
                 .update({
-                  cover_generation_status: "failed",
-                  cover_error: body.msg ?? "La pochette est introuvable",
+                  status: "failed",
+                  error_message: body.msg ?? "La pochette est introuvable",
                 })
-                .eq("id", job.project_id);
+                .eq("id", job.id);
+              if (job.project_id) {
+                await supabaseAdmin
+                  .from("projects")
+                  .update({
+                    cover_generation_status: "failed",
+                    cover_error: body.msg ?? "La pochette est introuvable",
+                  })
+                  .eq("id", job.project_id);
+              }
             }
           }
           return new Response("ok");
@@ -734,11 +785,28 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               result: { audioPath: durableAudioPath, imagePath: durableImagePath },
             })
             .eq("suno_task_id", taskId);
-        } else {
+        } else if (!isFinalCallback) {
           await supabaseAdmin
             .from("projects")
             .update({ progress: callbackData?.callbackType === "first" ? 75 : 45 })
             .eq("suno_task_id", taskId);
+        } else if (job) {
+          await refundFailedJob();
+          await supabaseAdmin
+            .from("projects")
+            .update({
+              status: "draft",
+              progress: 0,
+              error_message: body.msg ?? "Le fichier audio est introuvable",
+            })
+            .eq("suno_task_id", taskId);
+          await supabaseAdmin
+            .from("generation_jobs")
+            .update({
+              status: "failed",
+              error_message: body.msg ?? "Le fichier audio est introuvable",
+            })
+            .eq("id", job.id);
         }
 
         return new Response("ok");

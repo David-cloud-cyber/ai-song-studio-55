@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Download, Lock } from "lucide-react";
 import { WaveformBars } from "./WaveformBars";
 import { cn } from "@/lib/utils";
-import { useMediaUrl } from "@/hooks/use-media-url";
+import { useMediaDownloadUrl, useMediaUrl } from "@/hooks/use-media-url";
 
 function peaks(seed: string, len = 48) {
   const s = seed.charCodeAt(0) + seed.length;
@@ -42,6 +42,7 @@ export function AudioPlayer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const resolvedSrc = useMediaUrl(src);
+  const downloadUrl = useMediaDownloadUrl(src, downloadName ?? "loopster.mp3");
 
   useEffect(() => {
     setPlaying(false);
@@ -145,12 +146,10 @@ export function AudioPlayer({
           </div>
         </div>
 
-        {!compact && canDownload && resolvedSrc && (
+        {!compact && canDownload && downloadUrl && (
           <a
-            href={resolvedSrc}
+            href={downloadUrl}
             download={downloadName ?? true}
-            target="_blank"
-            rel="noreferrer"
             aria-label="Télécharger"
             className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-surface text-zinc-300 hover:text-neon"
           >

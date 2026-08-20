@@ -32,7 +32,7 @@ import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { CoverArt } from "@/components/studio/CoverArt";
 import { useProjectSync } from "@/hooks/use-project-sync";
-import { useMediaUrl } from "@/hooks/use-media-url";
+import { useMediaDownloadUrl, useMediaUrl } from "@/hooks/use-media-url";
 import { TimelineEditor } from "@/components/studio/TimelineEditor";
 import {
   createPersonaOperation,
@@ -212,6 +212,9 @@ function EditorPage() {
   const coverUrl = useMediaUrl(coverSource);
   const videoUrl = useMediaUrl(videoSource);
   const wavUrl = useMediaUrl(wavSource);
+  const audioDownloadUrl = useMediaDownloadUrl(audioSource, `${project?.title ?? "loopster"}.mp3`);
+  const wavDownloadUrl = useMediaDownloadUrl(wavSource, `${project?.title ?? "loopster"}.wav`);
+  const videoDownloadUrl = useMediaDownloadUrl(videoSource, `${project?.title ?? "loopster"}.mp4`);
 
   if (isLoading || !project) {
     return (
@@ -776,34 +779,28 @@ function EditorPage() {
                   Débloquer les exports
                 </Link>
               )}
-              {canDownload && audioUrl && (
+              {canDownload && audioDownloadUrl && (
                 <a
-                  href={audioUrl}
+                  href={audioDownloadUrl}
                   download={`${project.title}.mp3`}
-                  target="_blank"
-                  rel="noreferrer"
                   className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-neon px-4 text-sm font-semibold text-background"
                 >
                   <Download className="size-4" /> Télécharger le MP3
                 </a>
               )}
-              {wavUrl && canDownload && (
+              {wavDownloadUrl && canDownload && (
                 <a
-                  href={wavUrl}
+                  href={wavDownloadUrl}
                   download={`${project.title}.wav`}
-                  target="_blank"
-                  rel="noreferrer"
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-zinc-200"
                 >
                   <FileAudio className="size-4" /> Télécharger le WAV
                 </a>
               )}
-              {videoUrl && canDownload && (
+              {videoDownloadUrl && canDownload && (
                 <a
-                  href={videoUrl}
+                  href={videoDownloadUrl}
                   download={`${project.title}.mp4`}
-                  target="_blank"
-                  rel="noreferrer"
                   className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-zinc-200"
                 >
                   <Film className="size-4" /> Télécharger la vidéo

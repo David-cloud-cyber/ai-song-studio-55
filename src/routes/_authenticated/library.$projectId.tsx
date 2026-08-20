@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/studio/StatusBadge";
 import { PageTransition } from "@/components/studio/PageTransition";
 import { AudioPlayer } from "@/components/studio/AudioPlayer";
 import { useProjectSync } from "@/hooks/use-project-sync";
-import { useMediaUrl } from "@/hooks/use-media-url";
+import { useMediaDownloadUrl, useMediaUrl } from "@/hooks/use-media-url";
 import { useProfile } from "@/hooks/use-profile";
 import { isPaidPlan } from "@/lib/plans";
 import {
@@ -265,6 +265,9 @@ function ProjectDetail() {
   const coverUrl = useMediaUrl(coverSource);
   const videoUrl = useMediaUrl(videoSource);
   const wavUrl = useMediaUrl(wavSource);
+  const audioDownloadUrl = useMediaDownloadUrl(audioSource, `${project?.title ?? "loopster"}.mp3`);
+  const wavDownloadUrl = useMediaDownloadUrl(wavSource, `${project?.title ?? "loopster"}.wav`);
+  const videoDownloadUrl = useMediaDownloadUrl(videoSource, `${project?.title ?? "loopster"}.mp4`);
 
   if (isLoading || !project) {
     return (
@@ -403,7 +406,9 @@ function ProjectDetail() {
   const doCover = () => {
     if (
       coverSource &&
-      !window.confirm("Créer une nouvelle pochette pour 4 crédits ? L’actuelle sera conservée dans l’historique.")
+      !window.confirm(
+        "Créer une nouvelle pochette pour 4 crédits ? L’actuelle sera conservée dans l’historique.",
+      )
     ) {
       return;
     }
@@ -1090,9 +1095,9 @@ function ProjectDetail() {
 
           {tab === "Exports" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {canDownload && audioUrl && (
+              {canDownload && audioDownloadUrl && (
                 <a
-                  href={audioUrl}
+                  href={audioDownloadUrl}
                   download={`${project.title}.mp3`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >
@@ -1100,9 +1105,9 @@ function ProjectDetail() {
                   <FileAudio className="size-4 text-neon" />
                 </a>
               )}
-              {canDownload && wavUrl && (
+              {canDownload && wavDownloadUrl && (
                 <a
-                  href={wavUrl}
+                  href={wavDownloadUrl}
                   download={`${project.title}.wav`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >
@@ -1110,9 +1115,9 @@ function ProjectDetail() {
                   <FileAudio className="size-4 text-neon" />
                 </a>
               )}
-              {canDownload && videoUrl && (
+              {canDownload && videoDownloadUrl && (
                 <a
-                  href={videoUrl}
+                  href={videoDownloadUrl}
                   download={`${project.title}.mp4`}
                   className="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-4 text-sm font-semibold hover:border-neon/30"
                 >

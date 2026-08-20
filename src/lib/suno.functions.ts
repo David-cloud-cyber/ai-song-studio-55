@@ -709,8 +709,9 @@ export const addVocalsToProject = createServerFn({ method: "POST" })
         prompt: data.prompt,
         title: `${parent.title} · voix IA`,
         uploadUrl,
-        style: parent.style ?? undefined,
+        style: parent.style ?? parent.genre ?? "Pop, voix expressive",
         model: (parent.model as (typeof MODELS)[number]) ?? "V4_5PLUS",
+        negativeTags: "voix agressives, saturation, cris",
         callBackUrl: callbackUrl("music"),
       });
       taskId = result.taskId;
@@ -938,8 +939,9 @@ export const addInstrumentalToProject = createServerFn({ method: "POST" })
       const result = await addInstrumental({
         uploadUrl,
         title: `${parent.title} · instrumental`,
-        tags: parent.style ?? parent.genre ?? undefined,
+        tags: parent.style ?? parent.genre ?? "accompagnement musical harmonieux",
         model: (parent.model as (typeof MODELS)[number]) ?? "V4_5PLUS",
+        negativeTags: "bruit, distorsion, percussion agressive",
         callBackUrl: callbackUrl("music"),
       });
       taskId = result.taskId;

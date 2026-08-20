@@ -300,9 +300,9 @@ export function addVocals(payload: {
   prompt: string;
   title: string;
   uploadUrl: string;
-  style?: string;
+  style: string;
   model: SunoModel;
-  negativeTags?: string;
+  negativeTags: string;
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/generate/add-vocals", { method: "POST", body: payload });
@@ -311,9 +311,9 @@ export function addVocals(payload: {
 export function addInstrumental(payload: {
   uploadUrl: string;
   title: string;
-  tags?: string;
+  tags: string;
   model: SunoModel;
-  negativeTags?: string;
+  negativeTags: string;
   callBackUrl: string;
 }) {
   return sunoRequest<{ taskId: string }>("/generate/add-instrumental", {

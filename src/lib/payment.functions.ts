@@ -257,7 +257,7 @@ export const syncFapshiPaymentStatus = createServerFn({ method: "POST" })
     const body = (await response.json().catch(() => ({}))) as FapshiStatusResponse;
     if (!response.ok || !body.status || typeof body.amount !== "number") return order;
 
-    await supabaseAdmin.rpc("activate_payment_order", {
+    const { error: activationError } = await supabaseAdmin.rpc("activate_payment_order", {
       _provider_reference: order.provider_reference,
       _external_id: body.externalId ?? order.external_id,
       _provider_status: body.status,
@@ -265,6 +265,7 @@ export const syncFapshiPaymentStatus = createServerFn({ method: "POST" })
       _revenue_xaf: typeof body.revenue === "number" ? body.revenue : body.amount,
       _payload: body as unknown as Json,
     });
+    if (activationError) throw activationError;
 
     const { data: refreshed, error: refreshError } = await supabaseAdmin
       .from("payment_orders")

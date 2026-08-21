@@ -10,7 +10,8 @@
     "verify:build": "node scripts/verify-supabase-build.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "sync:provider-covers": "node scripts/sync-provider-covers.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

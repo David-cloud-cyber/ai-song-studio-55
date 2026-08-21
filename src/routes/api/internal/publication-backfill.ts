@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
             .select(
               "id,user_id,title,status,archived_at,image_path,image_url,cover_url,cover_source,provider_cover_status,provider_cover_attempts,suno_task_id,is_public,publication_status,public_image_url",
             )
+            .eq("status", "ready")
             .order("created_at", { ascending: true })
             .limit(limit);
           query = body.retryFailed
@@ -64,18 +65,30 @@ export const Route = createFileRoute("/api/internal/publication-backfill")({
           };
 
           for (const project of projects ?? []) {
-            const result = await syncProviderCoverForProject(supabaseAdmin, project);
-            if (result.status === "synced") report.synced += 1;
-            else if (result.status === "already_synced") report.alreadySynced += 1;
-            else if (result.status === "pending") report.pending += 1;
-            else if (result.status === "unavailable") report.unavailable += 1;
-            else report.failed += 1;
-            if (result.publicRefreshed) report.publicRefreshed += 1;
-            report.details.push({
-              projectId: result.projectId,
-              status: result.status,
-              ...(result.reason ? { reason: result.reason } : {}),
-            });
+            try {
+              const result = await syncProviderCoverForProject(supabaseAdmin, project);
+              if (result.status === "synced") report.synced += 1;
+              else if (result.status === "already_synced") report.alreadySynced += 1;
+              else if (result.status === "pending") report.pending += 1;
+              else if (result.status === "unavailable") report.unavailable += 1;
+              else report.failed += 1;
+              if (result.publicRefreshed) report.publicRefreshed += 1;
+              report.details.push({
+                projectId: result.projectId,
+                status: result.status,
+                ...(result.reason ? { reason: result.reason } : {}),
+              });
+            } catch (error) {
+              report.failed += 1;
+              report.details.push({
+                projectId: project.id,
+                status: "failed",
+                reason:
+                  error instanceof Error
+                    ? error.message
+                    : "La synchronisation de la pochette a échoué.",
+              });
+            }
           }
 
           return Response.json(report);

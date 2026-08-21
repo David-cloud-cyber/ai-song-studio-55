@@ -37,6 +37,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       { label: "80 crédits renouvelés chaque jour", included: true },
       { label: "Créations standard", included: true },
       { label: "Écoute dans ta bibliothèque", included: true },
+      { label: "Créations terminées publiées dans la galerie", included: true },
       { label: "Export des créations", included: false },
       { label: "Droits commerciaux", included: false },
     ],

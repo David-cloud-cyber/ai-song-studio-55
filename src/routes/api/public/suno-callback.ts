@@ -592,7 +592,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               .select("is_public,publication_policy")
               .eq("id", job.project_id)
               .maybeSingle();
-            await supabaseAdmin
+            const { error: coverUpdateError } = await supabaseAdmin
               .from("projects")
               .update({
                 image_path: durableCoverPath,
@@ -602,11 +602,15 @@ export const Route = createFileRoute("/api/public/suno-callback")({
                 cover_source: "ai",
                 cover_generation_status: "ready",
                 cover_error: null,
-                provider_cover_status: "pending",
-                provider_cover_error: null,
               })
               .eq("id", job.project_id);
-            const { registerActiveCoverVersion } = await import("@/lib/provider-cover.server");
+            if (coverUpdateError) throw coverUpdateError;
+            const { registerActiveCoverVersion, updateProviderCoverMetadata } =
+              await import("@/lib/provider-cover.server");
+            await updateProviderCoverMetadata(supabaseAdmin, job.project_id, {
+              provider_cover_status: "pending",
+              provider_cover_error: null,
+            });
             await registerActiveCoverVersion(supabaseAdmin, job.project_id, durableCoverPath, "ai");
             if (
               previousProject?.is_public ||
@@ -716,7 +720,7 @@ export const Route = createFileRoute("/api/public/suno-callback")({
             durableImagePath = fallback.path;
             coverSource = fallback.source === "provider" ? "provider" : "default";
           }
-          await supabaseAdmin
+          const { error: projectUpdateError } = await supabaseAdmin
             .from("projects")
             .update({
               status: "ready",
@@ -729,10 +733,6 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               cover_source: coverSource,
               cover_generation_status: "ready",
               cover_error: null,
-              provider_cover_status: providerImagePath ? "synced" : "pending",
-              provider_cover_attempts: 0,
-              provider_cover_last_attempt_at: null,
-              provider_cover_error: providerImagePath ? null : "Pochette fournisseur à récupérer.",
               public_audio_url: null,
               public_image_url: null,
               is_public: false,
@@ -745,7 +745,15 @@ export const Route = createFileRoute("/api/public/suno-callback")({
               error_message: null,
             })
             .eq("suno_task_id", taskId);
-          const { registerActiveCoverVersion } = await import("@/lib/provider-cover.server");
+          if (projectUpdateError) throw projectUpdateError;
+          const { registerActiveCoverVersion, updateProviderCoverMetadata } =
+            await import("@/lib/provider-cover.server");
+          await updateProviderCoverMetadata(supabaseAdmin, job.project_id, {
+            provider_cover_status: providerImagePath ? "synced" : "pending",
+            provider_cover_attempts: 0,
+            provider_cover_last_attempt_at: null,
+            provider_cover_error: providerImagePath ? null : "Pochette fournisseur à récupérer.",
+          });
           await registerActiveCoverVersion(
             supabaseAdmin,
             job.project_id,

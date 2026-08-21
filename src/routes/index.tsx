@@ -275,8 +275,8 @@ function GallerySection({
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionIntro
           eyebrow="Galerie Loopster"
-          title="Écoute les créations que la communauté a choisi de partager."
-          description="Chaque création affichée ici a été publiée volontairement par son auteur."
+          title="Écoute les créations de la communauté Loopster."
+          description="Les créations Free terminées rejoignent la galerie après information de leur auteur. Les abonnés choisissent celles qu’ils souhaitent partager."
         />
       </div>
       <div className="mt-12">

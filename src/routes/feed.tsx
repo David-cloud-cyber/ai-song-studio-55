@@ -70,7 +70,7 @@ function FeedPage() {
             <SectionHeader
               eyebrow="Créations publiques"
               title="Galerie Loopster"
-              description="Écoute les morceaux que les créateurs ont choisi de partager avec la communauté."
+              description="Découvre les créations Free publiées après information de leur auteur, ainsi que les morceaux partagés par les abonnés."
             />
           </section>
           <div className="mx-auto grid max-w-7xl gap-4 pb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

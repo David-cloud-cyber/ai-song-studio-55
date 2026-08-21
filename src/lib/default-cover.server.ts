@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { persistGeneratedAsset } from "@/lib/persist-generated-asset.server";
+import { updateProviderCoverMetadata } from "@/lib/provider-cover.server";
 
 type AdminClient = SupabaseClient<Database>;
 
@@ -80,7 +81,7 @@ export async function ensureProjectCover(supabaseAdmin: AdminClient, project: Co
       "image/jpeg",
     );
     if (path) {
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("projects")
         .update({
           image_path: path,
@@ -89,10 +90,13 @@ export async function ensureProjectCover(supabaseAdmin: AdminClient, project: Co
           cover_source: "provider",
           cover_generation_status: "ready",
           cover_error: null,
-          provider_cover_status: "synced",
-          provider_cover_error: null,
         })
         .eq("id", project.id);
+      if (updateError) throw updateError;
+      await updateProviderCoverMetadata(supabaseAdmin, project.id, {
+        provider_cover_status: "synced",
+        provider_cover_error: null,
+      });
       return { path, source: "provider" as const };
     }
   }
@@ -117,10 +121,12 @@ export async function ensureProjectCover(supabaseAdmin: AdminClient, project: Co
       cover_source: "default",
       cover_generation_status: "ready",
       cover_error: null,
-      provider_cover_status: "pending",
-      provider_cover_error: null,
     })
     .eq("id", project.id);
   if (updateError) throw updateError;
+  await updateProviderCoverMetadata(supabaseAdmin, project.id, {
+    provider_cover_status: "pending",
+    provider_cover_error: null,
+  });
   return { path, source: "default" as const };
 }

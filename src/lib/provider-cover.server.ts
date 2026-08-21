@@ -49,16 +49,55 @@ function sourceName(value: string) {
   return value === "ai" || value === "provider" ? value : "default";
 }
 
+type ProviderCoverMetadata = {
+  provider_cover_status?: string;
+  provider_cover_attempts?: number;
+  provider_cover_last_attempt_at?: string | null;
+  provider_cover_error?: string | null;
+};
+
+/**
+ * The provider-cover migration may briefly lag behind a Worker deployment.
+ * Only schema-availability errors are tolerated; operational errors still fail loudly.
+ */
+export function isProviderCoverSchemaUnavailable(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string; details?: string };
+  const code = candidate.code ?? "";
+  const message = `${candidate.message ?? ""} ${candidate.details ?? ""}`.toLowerCase();
+  return (
+    ["42P01", "42703", "PGRST204", "PGRST205"].includes(code) ||
+    message.includes("schema cache") ||
+    message.includes("project_cover_versions") ||
+    message.includes("provider_cover_")
+  );
+}
+
+export async function updateProviderCoverMetadata(
+  supabaseAdmin: AdminClient,
+  projectId: string,
+  metadata: ProviderCoverMetadata,
+) {
+  const { error } = await supabaseAdmin.from("projects").update(metadata).eq("id", projectId);
+  if (!error) return true;
+  if (isProviderCoverSchemaUnavailable(error)) return false;
+  throw error;
+}
+
 export async function registerActiveCoverVersion(
   supabaseAdmin: AdminClient,
   projectId: string,
   storagePath: string,
   source: string,
 ) {
-  await supabaseAdmin
+  const { error: deactivateError } = await supabaseAdmin
     .from("project_cover_versions")
     .update({ is_active: false })
     .eq("project_id", projectId);
+  if (deactivateError) {
+    if (isProviderCoverSchemaUnavailable(deactivateError)) return false;
+    throw deactivateError;
+  }
   const { error } = await supabaseAdmin.from("project_cover_versions").upsert(
     {
       project_id: projectId,
@@ -68,7 +107,11 @@ export async function registerActiveCoverVersion(
     },
     { onConflict: "project_id,storage_path" },
   );
-  if (error) throw error;
+  if (error) {
+    if (isProviderCoverSchemaUnavailable(error)) return false;
+    throw error;
+  }
+  return true;
 }
 
 async function archiveCurrentCover(supabaseAdmin: AdminClient, project: ProviderCoverProject) {
@@ -106,16 +149,12 @@ async function markCoverStatus(
   reason: string | null,
   attempts = project.provider_cover_attempts,
 ) {
-  const { error } = await supabaseAdmin
-    .from("projects")
-    .update({
-      provider_cover_status: status,
-      provider_cover_attempts: attempts,
-      provider_cover_last_attempt_at: new Date().toISOString(),
-      provider_cover_error: reason,
-    })
-    .eq("id", project.id);
-  if (error) throw error;
+  return updateProviderCoverMetadata(supabaseAdmin, project.id, {
+    provider_cover_status: status,
+    provider_cover_attempts: attempts,
+    provider_cover_last_attempt_at: new Date().toISOString(),
+    provider_cover_error: reason,
+  });
 }
 
 async function findProviderImage(project: ProviderCoverProject) {
@@ -265,13 +304,15 @@ export async function syncProviderCoverForProject(
         cover_source: "provider",
         cover_generation_status: "ready",
         cover_error: null,
-        provider_cover_status: "synced",
-        provider_cover_attempts: attempts,
-        provider_cover_last_attempt_at: new Date().toISOString(),
-        provider_cover_error: null,
       })
       .eq("id", project.id);
     if (updateError) throw updateError;
+    await updateProviderCoverMetadata(supabaseAdmin, project.id, {
+      provider_cover_status: "synced",
+      provider_cover_attempts: attempts,
+      provider_cover_last_attempt_at: new Date().toISOString(),
+      provider_cover_error: null,
+    });
 
     const publicRefreshed = await refreshPublicCover(supabaseAdmin, project, durablePath);
     return { projectId: project.id, status: "synced", publicRefreshed };

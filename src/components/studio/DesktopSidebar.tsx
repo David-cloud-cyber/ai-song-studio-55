@@ -49,13 +49,13 @@ export function DesktopSidebar({
   onToggle: () => void;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const paid = isPaidPlan(profile);
   const credits = paid
     ? (profile?.credits ?? 0)
     : Math.min(profile?.credits ?? 0, FREE_DAILY_CREDITS);
-  const name = profile?.display_name ?? "Créateur";
-  const initials = profile?.initials ?? "??";
+  const name = profile?.display_name ?? "Mon espace";
+  const initials = profile?.initials ?? "LS";
   const plan = paid ? `Loopster ${profile?.plan ?? "Pro"}` : "Loopster Free";
   return (
     <aside
@@ -120,16 +120,30 @@ export function DesktopSidebar({
           "mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 hover:bg-surface-elevated",
           collapsed && "justify-center p-2",
         )}
-        title={collapsed ? `${name} · ${plan}` : undefined}
+        title={collapsed && !profileLoading ? `${name} · ${plan}` : undefined}
+        aria-busy={profileLoading}
       >
         <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-xs font-semibold text-primary">
-          {initials}
+          {profileLoading ? (
+            <span className="size-4 animate-pulse rounded bg-primary/25" />
+          ) : (
+            initials
+          )}
         </div>
         <div className={cn("min-w-0 flex-1", collapsed && "sr-only")}>
-          <div className="truncate text-sm font-semibold">{name}</div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-primary">
-            {credits} CR · {plan}
-          </div>
+          {profileLoading ? (
+            <div className="space-y-2" aria-label="Chargement du profil">
+              <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+              <div className="h-2.5 w-32 animate-pulse rounded bg-primary/15" />
+            </div>
+          ) : (
+            <>
+              <div className="truncate text-sm font-semibold">{name}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-primary">
+                {credits} CR · {plan}
+              </div>
+            </>
+          )}
         </div>
       </Link>
     </aside>
